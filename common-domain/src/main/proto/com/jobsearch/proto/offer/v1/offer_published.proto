@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package jobsearch.offer.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option java_package = "com.jobsearch.proto.offer.v1";
+option java_multiple_files = true;
+
+// Emitted by offer-service to the `offer.published` topic via the transactional outbox + Debezium
+// (ADR 0002), after the canonical offer is persisted. Consumers (Phase 2/3: tracker, notification,
+// chatbot) are idempotent on `event_id`. See docs/phase-1-plan.md §1.5.
+//
+// Thin by design — grows additively (ADR 0003): add fields, never reuse field numbers.
+message OfferPublished {
+  string event_id = 1;      // stable event id; consumers dedupe on it (at-least-once CDC delivery)
+  string offer_id = 2;      // canonical offer id ("<source>:<external_id>")
+  google.protobuf.Timestamp published_at = 3;
+
+  // Thin enrichment payload so consumers can render without an immediate gRPC fetch.
+  string title = 4;
+  string company = 5;
+  string url = 6;
+}
