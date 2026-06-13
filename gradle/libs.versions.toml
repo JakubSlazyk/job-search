@@ -21,8 +21,13 @@ kotest = "6.0.3"
 mockk = "1.14.5"
 archunit = "1.4.2"       # architecture rules, shared via the common-archtest test-fixtures
 testcontainers = "1.20.6" # integration tests against real Kafka/Postgres; BOM aligns all modules
+wiremock = "3.9.2"        # mock external HTTP APIs for collection-service source adapters
 detekt = "2.0.0-alpha.3" # only detekt line that supports JDK 25 (1.23.x crashes on it);
                          # pre-release build tooling — move to 2.0 GA/RC when released
+
+# --- collection-service (Phase 1.2): scraping + resilience ---
+jsoup = "1.18.3"         # static-HTML parsing for scrape sources
+resilience4j = "2.2.0"   # retry / circuit-breaker on outbound source fetches (reactor operators)
 
 [libraries]
 # --- Gradle plugin artifacts (build-logic classpath; pins plugin versions monorepo-wide) ---
@@ -57,6 +62,13 @@ archunit-junit5 = { module = "com.tngtech.archunit:archunit-junit5", version.ref
 
 # --- Integration testing (Testcontainers BOM; service modules import it as a test platform) ---
 testcontainers-bom = { module = "org.testcontainers:testcontainers-bom", version.ref = "testcontainers" }
+wiremock = { module = "org.wiremock:wiremock-standalone", version.ref = "wiremock" } # shaded server; avoids Jetty clash with Spring Boot 4
+
+# --- collection-service source adapters (Phase 1.2) ---
+jsoup = { module = "org.jsoup:jsoup", version.ref = "jsoup" }
+resilience4j-reactor = { module = "io.github.resilience4j:resilience4j-reactor", version.ref = "resilience4j" }
+resilience4j-circuitbreaker = { module = "io.github.resilience4j:resilience4j-circuitbreaker", version.ref = "resilience4j" }
+resilience4j-retry = { module = "io.github.resilience4j:resilience4j-retry", version.ref = "resilience4j" }
 
 [plugins]
 # Spring Boot / Kotlin plugins are applied through build-logic convention plugins, not here.

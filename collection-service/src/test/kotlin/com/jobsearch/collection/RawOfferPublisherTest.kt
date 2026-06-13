@@ -1,6 +1,7 @@
 package com.jobsearch.collection
 
 import com.jobsearch.common.domain.Topics
+import com.jobsearch.proto.collection.v1.RawOffer
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
 import io.mockk.mockk
@@ -13,7 +14,12 @@ class RawOfferPublisherTest :
         "publish sends the offer bytes to raw-offers keyed by offer_id" {
             val kafkaTemplate = mockk<KafkaTemplate<String, ByteArray>>(relaxed = true)
             val publisher = RawOfferPublisher(kafkaTemplate)
-            val offer = SampleOffers.sample()
+            val offer =
+                RawOffer
+                    .newBuilder()
+                    .setSource("sample")
+                    .setExternalId("offer-1")
+                    .build()
 
             val offerId = publisher.publish(offer)
 

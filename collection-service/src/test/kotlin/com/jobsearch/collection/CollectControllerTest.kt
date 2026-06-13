@@ -5,16 +5,16 @@ import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
 import org.springframework.http.HttpStatus
+import reactor.core.publisher.Mono
 
 class CollectControllerTest :
     StringSpec({
-        "collect endpoint publishes the sample and returns 202 with the offer id" {
-            val publisher = mockk<RawOfferPublisher>()
-            every { publisher.publish(any()) } returns "sample:offer-1"
+        "collect triggers a run and returns 202 with the published count" {
+            val collector = mockk<OfferCollector> { every { collectAll() } returns Mono.just(2) }
 
-            val response = CollectController(publisher).collectSample()
+            val response = CollectController(collector).collect().block()!!
 
             response.statusCode shouldBe HttpStatus.ACCEPTED
-            response.body shouldBe mapOf("offerId" to "sample:offer-1")
+            response.body shouldBe mapOf("collected" to 2)
         }
     })
