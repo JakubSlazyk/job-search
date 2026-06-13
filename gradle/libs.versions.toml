@@ -1,0 +1,33 @@
+# Central version catalog — single source of truth for dependency versions across the monorepo.
+# Grown incrementally per service/phase (see docs/build-plan.md). Exact patch versions are
+# verified against the build; bump here when the build reports a newer/required version.
+
+[versions]
+java = "25"
+kotlin = "2.3.21"
+springBoot = "4.1.0"
+
+# Quality / test tooling
+jacoco = "0.8.13"        # must support JDK 25 bytecode — bump if the build rejects class v69
+spotless = "7.0.4"
+ktlint = "1.5.0"
+kotest = "6.0.3"
+mockk = "1.14.5"
+detekt = "2.0.0-alpha.3" # only detekt line that supports JDK 25 (1.23.x crashes on it);
+                         # pre-release build tooling — move to 2.0 GA/RC when released
+
+[libraries]
+# --- Gradle plugin artifacts (build-logic classpath; pins plugin versions monorepo-wide) ---
+kotlin-gradlePlugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
+spring-boot-gradlePlugin = { module = "org.springframework.boot:spring-boot-gradle-plugin", version.ref = "springBoot" }
+spotless-gradlePlugin = { module = "com.diffplug.spotless:spotless-plugin-gradle", version.ref = "spotless" }
+detekt-gradlePlugin = { module = "dev.detekt:detekt-gradle-plugin", version.ref = "detekt" }
+
+# --- Test dependencies (applied to every module by the kotlin-common convention plugin) ---
+kotest-runner-junit5 = { module = "io.kotest:kotest-runner-junit5", version.ref = "kotest" }
+kotest-assertions-core = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest" }
+kotest-property = { module = "io.kotest:kotest-property", version.ref = "kotest" }
+mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
+
+[plugins]
+# Spring Boot / Kotlin plugins are applied through build-logic convention plugins, not here.

@@ -1,0 +1,9 @@
+# detekt configuration — overrides layered on top of the default rules
+# (`buildUponDefaultConfig = true`). Formatting rules are intentionally absent;
+# Spotless/ktlint owns formatting (see CLAUDE.md).
+
+style:
+  MaxLineLength:
+    maxLineLength: 120
+  MagicNumber:
+    active: false

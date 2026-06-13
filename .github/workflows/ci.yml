@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Cancel superseded runs on the same ref.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build & verify (JDK 25)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 25 (Corretto)
+        uses: actions/setup-java@v4
+        with:
+          distribution: corretto
+          java-version: "25"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # Compiles, runs Kotest, detekt, Spotless check, and the JaCoCo 80% coverage gate.
+      - name: Build & verify
+        run: ./gradlew build --stacktrace
+
+  # --- Deferred (wired up in Phase 2/3) ---
+  # SonarCloud quality gate: needs the sonarqube Gradle plugin + SONAR_TOKEN secret.
+  # Deploy: build & push Docker images to ECR -> terraform apply -> Helm to EKS,
+  #         authenticated via GitHub OIDC (no long-lived AWS keys in this public repo).

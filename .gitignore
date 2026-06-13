@@ -1,0 +1,68 @@
+# ---- Gradle ----
+.gradle/
+**/build/
+!**/src/**/build/
+gradle-app.setting
+.gradletasknamecache
+
+# Keep the Gradle wrapper jar/scripts in VCS
+!gradle/wrapper/gradle-wrapper.jar
+!gradle/wrapper/gradle-wrapper.properties
+
+# ---- Kotlin / JVM ----
+*.class
+*.log
+*.jar
+*.war
+*.ear
+hs_err_pid*
+replay_pid*
+!gradle/wrapper/gradle-wrapper.jar
+
+# ---- Generated sources (protobuf/gRPC) ----
+**/generated/
+**/generated-sources/
+
+# ---- IDE ----
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+!.vscode/extensions.json
+*.swp
+*.swo
+
+# ---- Tooling scratch ----
+.playwright-mcp/
+
+# ---- OS ----
+.DS_Store
+Thumbs.db
+
+# ---- Node / front-end ----
+node_modules/
+dist/
+.vite/
+coverage/
+*.local
+
+# ---- Env / secrets (public repo — never commit) ----
+.env
+.env.*
+!.env.example
+*.pem
+*.p12
+*.key
+
+# ---- Terraform ----
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+crash.log
+
+# Keep docs/ and CLAUDE.md out of the public repo for now; only the README is published
+*.md
+!README.md

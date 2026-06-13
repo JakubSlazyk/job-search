@@ -1,0 +1,11 @@
+# Normalize line endings to LF in the repo (matches .editorconfig / ktlint).
+* text=auto eol=lf
+
+# Binary files Git must not touch.
+*.jar binary
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+gradle/wrapper/gradle-wrapper.jar binary
