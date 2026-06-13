@@ -20,6 +20,7 @@ ktlint = "1.5.0"
 kotest = "6.0.3"
 mockk = "1.14.5"
 archunit = "1.4.2"       # architecture rules, shared via the common-archtest test-fixtures
+testcontainers = "1.20.6" # integration tests against real Kafka/Postgres; BOM aligns all modules
 detekt = "2.0.0-alpha.3" # only detekt line that supports JDK 25 (1.23.x crashes on it);
                          # pre-release build tooling — move to 2.0 GA/RC when released
 
@@ -53,6 +54,9 @@ mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
 
 # --- Architecture testing (consumed via common-archtest test-fixtures) ---
 archunit-junit5 = { module = "com.tngtech.archunit:archunit-junit5", version.ref = "archunit" }
+
+# --- Integration testing (Testcontainers BOM; service modules import it as a test platform) ---
+testcontainers-bom = { module = "org.testcontainers:testcontainers-bom", version.ref = "testcontainers" }
 
 [plugins]
 # Spring Boot / Kotlin plugins are applied through build-logic convention plugins, not here.

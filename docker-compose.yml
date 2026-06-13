@@ -1,7 +1,7 @@
-# Local infrastructure for job-search — grown incrementally (see docs/build-plan.md).
-# Phase 0 / step 1.1 needs only the event backbone: Kafka (KRaft, no ZooKeeper) and the
-# Apicurio schema registry. Postgres / OpenSearch / Kafka-Connect+Debezium arrive with
-# offer-service (step 1.3); Keycloak + Redis in Phase 2.
+# Local infrastructure for job-search — grown incrementally (see docs/phase-1-plan.md).
+# Event backbone: Kafka (KRaft, no ZooKeeper) + Apicurio schema registry. Postgres is added for
+# the §1.1 walking skeleton (offer-service's canonical store). OpenSearch (§1.4) and
+# Kafka-Connect+Debezium (§1.5) arrive later; Keycloak + Redis in Phase 2.
 
 services:
   kafka:
@@ -38,3 +38,18 @@ services:
         condition: service_healthy
     environment:
       QUARKUS_PROFILE: prod
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: js-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: offers
+      POSTGRES_USER: offers
+      POSTGRES_PASSWORD: offers
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U offers -d offers"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
