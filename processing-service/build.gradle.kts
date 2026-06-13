@@ -2,8 +2,9 @@ plugins {
     id("job-search.spring-service")
 }
 
-// Phase 1.1 walking skeleton: stateless Kafka→Kafka transform raw-offers → normalized-offers.
-// Source-agnostic canonicalization + dedupe and hexagonal layering arrive in §1.3.
+// Phase 1.3: stateless Kafka→Kafka transform (raw-offers → normalized-offers) structured as
+// Hexagonal + DDD — source-agnostic canonicalization + in-window dedupe, layering enforced by
+// ArchUnit (via the common-archtest fixtures).
 
 dependencies {
     implementation(project(":common-domain"))
@@ -19,4 +20,5 @@ dependencies {
     testImplementation("org.springframework.kafka:spring-kafka-test")
     testImplementation("org.testcontainers:junit-jupiter")
     testImplementation("org.testcontainers:kafka")
+    testImplementation(testFixtures(project(":common-archtest")))
 }

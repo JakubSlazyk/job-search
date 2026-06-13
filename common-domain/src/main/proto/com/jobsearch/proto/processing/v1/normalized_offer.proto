@@ -21,4 +21,14 @@ message NormalizedOffer {
   string location = 7;
   string description = 8;
   google.protobuf.Timestamp normalized_at = 9;
+  Seniority seniority = 10; // derived from the title during canonicalization (§1.3)
+}
+
+// Canonical seniority level inferred from the offer title.
+enum Seniority {
+  SENIORITY_UNSPECIFIED = 0;
+  JUNIOR = 1;
+  MID = 2;
+  SENIOR = 3;
+  LEAD = 4;
 }
