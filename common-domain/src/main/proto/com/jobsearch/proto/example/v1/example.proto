@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package jobsearch.example.v1;
+
+option java_package = "com.jobsearch.proto.example.v1";
+option java_multiple_files = true;
+
+// Placeholder contract that exercises the Protobuf + gRPC codegen wiring (job-search.protobuf).
+// Generated types land under com.jobsearch.proto.** and are excluded from the coverage gate.
+// Replaced by the real raw-offer / normalized-offer / offer.published schemas in Phase 1
+// (see docs/build-plan.md and ADR 0003).
+
+message Ping {
+  string message = 1;
+}
+
+service ExampleService {
+  rpc Send(Ping) returns (Ping);
+}

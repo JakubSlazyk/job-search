@@ -19,3 +19,6 @@ dependencyResolutionManagement {
 
 // Shared libraries (services are added in Phase 1 — see docs/build-plan.md).
 include(":common-domain")
+include(":common-web")
+include(":common-security")
+include(":common-archtest")

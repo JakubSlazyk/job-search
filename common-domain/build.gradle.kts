@@ -1,5 +1,8 @@
 plugins {
     id("job-search.kotlin-common")
+    id("job-search.protobuf")
 }
 
-// Protobuf contracts and generated domain types are added in Phase 1 (see ADR 0003).
+// .proto contracts under src/main/proto are compiled to Java + Kotlin messages and gRPC/grpc-kotlin
+// stubs by the job-search.protobuf convention plugin. Generated types live under
+// com.jobsearch.proto.** (excluded from the JaCoCo gate). See ADR 0003.
