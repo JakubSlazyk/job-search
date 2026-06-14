@@ -10,10 +10,10 @@ import io.mockk.verify
 
 class NormalizedOfferListenerTest :
     StringSpec({
-        "listener upserts the write model and indexes the read model" {
-            val repository = mockk<OfferRepository>(relaxed = true)
+        "listener ingests the write model (upsert + outbox) and indexes the read model" {
+            val ingestionService = mockk<OfferIngestionService>(relaxed = true)
             val searchIndex = mockk<OfferSearchIndex>(relaxed = true)
-            val listener = NormalizedOfferListener(repository, searchIndex)
+            val listener = NormalizedOfferListener(ingestionService, searchIndex)
             val normalized =
                 NormalizedOffer
                     .newBuilder()
@@ -23,13 +23,13 @@ class NormalizedOfferListenerTest :
                     .setTitle("Engineer")
                     .build()
 
-            val upserted = slot<Offer>()
+            val ingested = slot<Offer>()
             val indexed = slot<Offer>()
             listener.onMessage(normalized.toByteArray())
 
-            verify(exactly = 1) { repository.upsert(capture(upserted)) }
+            verify(exactly = 1) { ingestionService.ingest(capture(ingested)) }
             verify(exactly = 1) { searchIndex.index(capture(indexed)) }
-            upserted.captured.offerId shouldBe "sample:offer-1"
+            ingested.captured.offerId shouldBe "sample:offer-1"
             indexed.captured.offerId shouldBe "sample:offer-1"
         }
     })

@@ -1,7 +1,8 @@
 # Local infrastructure for job-search — grown incrementally (see docs/phase-1-plan.md).
-# Event backbone: Kafka (KRaft, no ZooKeeper) + Apicurio schema registry. Postgres is added for
-# the §1.1 walking skeleton (offer-service's canonical store). OpenSearch (§1.4) and
-# Kafka-Connect+Debezium (§1.5) arrive later; Keycloak + Redis in Phase 2.
+# Event backbone: Kafka (KRaft, no ZooKeeper) + Apicurio schema registry. Postgres is the
+# offer-service canonical store (§1.1), runs with wal_level=logical for Debezium (§1.5). OpenSearch
+# is the read model (§1.4); Kafka Connect + Debezium drain the outbox to `offer.published` (§1.5).
+# Keycloak + Redis arrive in Phase 2.
 
 services:
   kafka:
@@ -42,6 +43,15 @@ services:
   postgres:
     image: postgres:16-alpine
     container_name: js-postgres
+    # wal_level=logical + replication slots/senders let Debezium (pgoutput) tail the WAL (§1.5).
+    command:
+      - "postgres"
+      - "-c"
+      - "wal_level=logical"
+      - "-c"
+      - "max_wal_senders=10"
+      - "-c"
+      - "max_replication_slots=10"
     ports:
       - "5432:5432"
     environment:
@@ -74,3 +84,47 @@ services:
       interval: 10s
       timeout: 5s
       retries: 15
+
+  # Kafka Connect + Debezium (§1.5): tails the Postgres WAL and drains the offer-service outbox to
+  # `offer.published`. The image bundles the Postgres connector and the Outbox Event Router SMT.
+  kafka-connect:
+    image: quay.io/debezium/connect:3.0.0.Final
+    container_name: js-kafka-connect
+    ports:
+      - "8083:8083"
+    depends_on:
+      kafka:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    environment:
+      BOOTSTRAP_SERVERS: kafka:29092
+      GROUP_ID: offer-connect
+      CONFIG_STORAGE_TOPIC: connect-configs
+      OFFSET_STORAGE_TOPIC: connect-offsets
+      STATUS_STORAGE_TOPIC: connect-status
+      CONFIG_STORAGE_REPLICATION_FACTOR: 1
+      OFFSET_STORAGE_REPLICATION_FACTOR: 1
+      STATUS_STORAGE_REPLICATION_FACTOR: 1
+
+  # One-shot: waits for Connect's REST API, registers the outbox connector, then exits — so
+  # "docker compose up" brings the whole CDC path online with no manual curl. It polls itself (curl
+  # is guaranteed in this image, not in the connect image) and the PUT is idempotent on the config.
+  connect-init:
+    image: curlimages/curl:8.11.0
+    container_name: js-connect-init
+    depends_on:
+      kafka-connect:
+        condition: service_started
+    restart: "no"
+    volumes:
+      - ./infra/debezium/offer-outbox-connector.json:/connector.json:ro
+    entrypoint:
+      - "sh"
+      - "-c"
+      - >
+        until curl -sf http://kafka-connect:8083/connectors >/dev/null; do
+        echo 'waiting for kafka-connect...'; sleep 3; done;
+        curl -sf -X PUT -H 'Content-Type: application/json'
+        --data @/connector.json
+        http://kafka-connect:8083/connectors/offer-outbox-connector/config

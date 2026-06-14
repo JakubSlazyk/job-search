@@ -1,0 +1,23 @@
+{
+  "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+  "plugin.name": "pgoutput",
+  "database.hostname": "postgres",
+  "database.port": "5432",
+  "database.user": "offers",
+  "database.password": "offers",
+  "database.dbname": "offers",
+  "topic.prefix": "offer-service",
+  "slot.name": "offer_outbox_slot",
+  "publication.name": "offer_outbox_pub",
+  "table.include.list": "public.outbox",
+  "tombstones.on.delete": "false",
+
+  "transforms": "outbox",
+  "transforms.outbox.type": "io.debezium.transforms.outbox.EventRouter",
+  "transforms.outbox.table.field.event.key": "aggregateid",
+  "transforms.outbox.route.by.field": "aggregatetype",
+  "transforms.outbox.route.topic.replacement": "offer.published",
+
+  "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+  "value.converter": "io.debezium.converters.BinaryDataConverter"
+}

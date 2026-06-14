@@ -32,6 +32,9 @@ resilience4j = "2.2.0"   # retry / circuit-breaker on outbound source fetches (r
 # --- offer-service (Phase 1.4): OpenSearch read side / CQRS ---
 opensearch = "2.25.0"             # OpenSearch Java client (targets OpenSearch 2.x; see CLAUDE.md Data & AI)
 
+# --- offer-service (Phase 1.5): transactional outbox + Debezium CDC ---
+debezium = "3.0.0.Final"          # matches the quay.io/debezium/connect image; only used by tests (DebeziumContainer)
+
 [libraries]
 # --- Gradle plugin artifacts (build-logic classpath; pins plugin versions monorepo-wide) ---
 kotlin-gradlePlugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
@@ -75,6 +78,10 @@ resilience4j-retry = { module = "io.github.resilience4j:resilience4j-retry", ver
 
 # --- offer-service OpenSearch read side (Phase 1.4) ---
 opensearch-java = { module = "org.opensearch.client:opensearch-java", version.ref = "opensearch" }
+
+# --- offer-service outbox + Debezium CDC tests (Phase 1.5; versions via the Testcontainers BOM) ---
+testcontainers-kafka = { module = "org.testcontainers:kafka" }
+debezium-testcontainers = { module = "io.debezium:debezium-testing-testcontainers", version.ref = "debezium" }
 
 [plugins]
 # Spring Boot / Kotlin plugins are applied through build-logic convention plugins, not here.

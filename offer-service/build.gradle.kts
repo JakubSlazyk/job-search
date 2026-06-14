@@ -2,9 +2,10 @@ plugins {
     id("job-search.spring-service")
 }
 
-// Phase 1.4: CQRS read side. offer-service keeps the Postgres write model (§1.1) and adds an
-// OpenSearch read model — indexing on upsert and serving browse/search/filter from it. Outbox +
-// Debezium (§1.5) and GraphQL/gRPC (§1.6) layer on later.
+// Phase 1.5: reliable publishing. On top of the Postgres write model (§1.1) and OpenSearch read
+// model (§1.4), offer-service writes an `offer.published` event to a transactional outbox in the
+// same tx as the upsert; Debezium (Kafka Connect) drains it (ADR 0002). The producer is Debezium,
+// not the app — so only test deps are added here. GraphQL/gRPC (§1.6) layer on later.
 
 dependencies {
     implementation(project(":common-domain"))
@@ -25,4 +26,6 @@ dependencies {
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.testcontainers:junit-jupiter")
     testImplementation("org.testcontainers:postgresql")
+    testImplementation(libs.testcontainers.kafka) // §1.5 full-CDC outbox -> offer.published test
+    testImplementation(libs.debezium.testcontainers)
 }

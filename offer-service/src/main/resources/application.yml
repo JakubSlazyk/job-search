@@ -20,5 +20,12 @@ opensearch:
   host: ${OPENSEARCH_HOST:localhost}
   port: ${OPENSEARCH_PORT:9200}
 
+# Transactional-outbox housekeeping (§1.5): drained rows older than `retention` are purged every
+# `purge-interval-ms`. Debezium reads the WAL, so deletion after the window is safe.
+app:
+  outbox:
+    retention: ${OUTBOX_RETENTION:PT1H}
+    purge-interval-ms: ${OUTBOX_PURGE_INTERVAL_MS:600000}
+
 server:
   port: 8080
