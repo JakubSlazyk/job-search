@@ -32,8 +32,9 @@ services:
   schema-registry:
     image: apicurio/apicurio-registry-mem:2.6.5.Final
     container_name: js-apicurio
+    # Host 8085 (not 8081) to leave 8080/8081 for the offer-/collection-service HTTP ports.
     ports:
-      - "8081:8080"
+      - "8085:8080"
     depends_on:
       kafka:
         condition: service_healthy
