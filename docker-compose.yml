@@ -191,6 +191,7 @@ services:
       OPENSEARCH_PORT: 9200
     ports:
       - "8080:8080"
+      - "9090:9090"   # internal gRPC API (offer.v1, §1.6) — exposed for local testing (grpcurl)
     healthcheck:
       test: ["CMD-SHELL", "bash -c '</dev/tcp/localhost/8080' || exit 1"]
       interval: 10s

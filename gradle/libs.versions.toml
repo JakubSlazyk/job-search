@@ -11,6 +11,12 @@ springBoot = "4.1.0"
 protobuf = "4.34.2"      # protoc + protobuf-java/-kotlin runtime (kept in lockstep)
 protobufPlugin = "0.10.0" # com.google.protobuf Gradle plugin
 grpc = "1.73.0"          # grpc-java (protoc-gen-grpc-java + runtime stubs)
+# Runtime grpc-java alignment for offer-service (Phase 1.6). Spring Boot 4.1.0's grpc-bom pins
+# io.grpc to 1.80.0, but spring-grpc-core 1.1.0 (pulled by spring-boot-starter-grpc-server) hard-
+# requires grpc-core/grpc-api 1.81.0 — leaving grpc-netty at 1.80.0 and crashing the server with
+# AbstractMethodError. Importing grpc-bom 1.81.0 realigns the whole io.grpc group. Drop when a
+# Boot patch ships a consistent grpc-bom.
+grpcRuntime = "1.81.0"
 grpcKotlin = "1.4.3"     # grpc-kotlin (protoc-gen-grpc-kotlin + coroutine stubs)
 
 # Quality / test tooling
@@ -35,6 +41,11 @@ opensearch = "2.25.0"             # OpenSearch Java client (targets OpenSearch 2
 # --- offer-service (Phase 1.5): transactional outbox + Debezium CDC ---
 debezium = "3.0.0.Final"          # matches the quay.io/debezium/connect image; only used by tests (DebeziumContainer)
 
+# --- offer-service (Phase 1.6): GraphQL + gRPC + OpenAPI APIs ---
+# GraphQL + gRPC server starters are managed by the Spring Boot 4.1 BOM (no version here).
+springdoc = "3.0.3"               # springdoc-openapi for Spring Boot 4.x (2.x targets Boot 3); REST/OpenAPI docs
+restAssured = "6.0.0"             # not in the Boot 4.1 BOM; pinned here (matches Spring 7 MockMvc)
+
 [libraries]
 # --- Gradle plugin artifacts (build-logic classpath; pins plugin versions monorepo-wide) ---
 kotlin-gradlePlugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
@@ -53,6 +64,7 @@ protobuf-java = { module = "com.google.protobuf:protobuf-java", version.ref = "p
 protobuf-kotlin = { module = "com.google.protobuf:protobuf-kotlin", version.ref = "protobuf" }
 grpc-protocGen = { module = "io.grpc:protoc-gen-grpc-java", version.ref = "grpc" }
 grpc-kotlin-protocGen = { module = "io.grpc:protoc-gen-grpc-kotlin", version.ref = "grpcKotlin" }
+grpc-bom = { module = "io.grpc:grpc-bom", version.ref = "grpcRuntime" } # realigns io.grpc to 1.81.0 (see grpcRuntime)
 grpc-stub = { module = "io.grpc:grpc-stub", version.ref = "grpc" }
 grpc-protobuf = { module = "io.grpc:grpc-protobuf", version.ref = "grpc" }
 grpc-kotlin-stub = { module = "io.grpc:grpc-kotlin-stub", version.ref = "grpcKotlin" }
@@ -82,6 +94,10 @@ opensearch-java = { module = "org.opensearch.client:opensearch-java", version.re
 # --- offer-service outbox + Debezium CDC tests (Phase 1.5; versions via the Testcontainers BOM) ---
 testcontainers-kafka = { module = "org.testcontainers:kafka" }
 debezium-testcontainers = { module = "io.debezium:debezium-testing-testcontainers", version.ref = "debezium" }
+
+# --- offer-service GraphQL + gRPC + OpenAPI (Phase 1.6) ---
+springdoc-openapi-starter-webmvc-ui = { module = "org.springdoc:springdoc-openapi-starter-webmvc-ui", version.ref = "springdoc" }
+rest-assured-spring-mock-mvc = { module = "io.rest-assured:spring-mock-mvc", version.ref = "restAssured" } # REST tests over MockMvc
 
 [plugins]
 # Spring Boot / Kotlin plugins are applied through build-logic convention plugins, not here.

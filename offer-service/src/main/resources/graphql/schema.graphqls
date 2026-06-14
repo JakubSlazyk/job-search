@@ -1,0 +1,30 @@
+# GraphQL query side for offer-service (§1.6) — flexible browsing over the OpenSearch read model.
+# Field names match the `Offer` projection so default property fetchers resolve them. Schema evolves
+# additively (deprecate, never remove/renumber), mirroring the REST + gRPC surfaces.
+
+type Offer {
+    offerId: ID!
+    source: String!
+    externalId: String!
+    title: String!
+    company: String!
+    url: String!
+    location: String!
+    description: String!
+    seniority: String!
+}
+
+type Query {
+    "Filtered, paginated browse. `query` is optional full-text over title/company/description; source/location/seniority are exact-match filters."
+    offers(
+        query: String
+        source: String
+        location: String
+        seniority: String
+        page: Int = 0
+        size: Int = 20
+    ): [Offer!]!
+
+    "Point lookup by canonical offer id; null when absent."
+    offer(offerId: ID!): Offer
+}
