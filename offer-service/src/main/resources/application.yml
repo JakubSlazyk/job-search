@@ -15,5 +15,10 @@ spring:
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.ByteArrayDeserializer
 
+opensearch:
+  scheme: ${OPENSEARCH_SCHEME:http}
+  host: ${OPENSEARCH_HOST:localhost}
+  port: ${OPENSEARCH_PORT:9200}
+
 server:
   port: 8080

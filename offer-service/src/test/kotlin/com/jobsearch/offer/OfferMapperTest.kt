@@ -1,12 +1,13 @@
 package com.jobsearch.offer
 
 import com.jobsearch.proto.processing.v1.NormalizedOffer
+import com.jobsearch.proto.processing.v1.Seniority
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
 
 class OfferMapperTest :
     StringSpec({
-        "maps every NormalizedOffer field onto the Offer" {
+        "maps every NormalizedOffer field onto the Offer, including seniority" {
             val normalized =
                 NormalizedOffer
                     .newBuilder()
@@ -18,6 +19,7 @@ class OfferMapperTest :
                     .setUrl("https://example.com/1")
                     .setLocation("Remote")
                     .setDescription("desc")
+                    .setSeniority(Seniority.SENIOR)
                     .build()
 
             OfferMapper.toOffer(normalized) shouldBe
@@ -30,6 +32,7 @@ class OfferMapperTest :
                     url = "https://example.com/1",
                     location = "Remote",
                     description = "desc",
+                    seniority = "SENIOR",
                 )
         }
     })

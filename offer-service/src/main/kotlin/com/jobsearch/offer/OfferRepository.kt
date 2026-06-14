@@ -1,12 +1,12 @@
 package com.jobsearch.offer
 
-import org.springframework.jdbc.core.RowMapper
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.stereotype.Repository
 
 /**
- * Postgres-backed store for canonical offers (write side). Upsert is keyed on the natural `offer_id`
- * via `INSERT ... ON CONFLICT`, so re-consuming the same offer is idempotent.
+ * Postgres-backed canonical store (CQRS write model). Reads are served from the OpenSearch read
+ * model, so this side only upserts — keyed on the natural `offer_id` via `INSERT ... ON CONFLICT`,
+ * making re-consumption idempotent.
  */
 @Repository
 class OfferRepository(
@@ -16,8 +16,10 @@ class OfferRepository(
         jdbc
             .sql(
                 """
-                INSERT INTO offers (offer_id, source, external_id, title, company, url, location, description, updated_at)
-                VALUES (:offerId, :source, :externalId, :title, :company, :url, :location, :description, now())
+                INSERT INTO offers
+                    (offer_id, source, external_id, title, company, url, location, description, seniority, updated_at)
+                VALUES
+                    (:offerId, :source, :externalId, :title, :company, :url, :location, :description, :seniority, now())
                 ON CONFLICT (offer_id) DO UPDATE SET
                     source = excluded.source,
                     external_id = excluded.external_id,
@@ -26,6 +28,7 @@ class OfferRepository(
                     url = excluded.url,
                     location = excluded.location,
                     description = excluded.description,
+                    seniority = excluded.seniority,
                     updated_at = now()
                 """.trimIndent(),
             ).param("offerId", offer.offerId)
@@ -36,35 +39,7 @@ class OfferRepository(
             .param("url", offer.url)
             .param("location", offer.location)
             .param("description", offer.description)
+            .param("seniority", offer.seniority)
             .update()
-    }
-
-    fun findAll(): List<Offer> = jdbc.sql("$SELECT_COLUMNS ORDER BY offer_id").query(rowMapper).list()
-
-    fun findById(offerId: String): Offer? =
-        jdbc
-            .sql("$SELECT_COLUMNS WHERE offer_id = :offerId")
-            .param("offerId", offerId)
-            .query(rowMapper)
-            .optional()
-            .orElse(null)
-
-    private companion object {
-        const val SELECT_COLUMNS =
-            "SELECT offer_id, source, external_id, title, company, url, location, description FROM offers"
-
-        val rowMapper =
-            RowMapper { rs, _ ->
-                Offer(
-                    offerId = rs.getString("offer_id"),
-                    source = rs.getString("source"),
-                    externalId = rs.getString("external_id"),
-                    title = rs.getString("title"),
-                    company = rs.getString("company"),
-                    url = rs.getString("url"),
-                    location = rs.getString("location"),
-                    description = rs.getString("description"),
-                )
-            }
     }
 }

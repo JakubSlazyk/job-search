@@ -14,5 +14,6 @@ object OfferMapper {
             url = normalized.url,
             location = normalized.location,
             description = normalized.description,
+            seniority = normalized.seniority.name,
         )
 }

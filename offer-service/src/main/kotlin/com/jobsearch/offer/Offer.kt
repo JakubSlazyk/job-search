@@ -1,6 +1,6 @@
 package com.jobsearch.offer
 
-/** The canonical offer as stored and served by offer-service (§1.1 thin read model). */
+/** The canonical offer as stored (Postgres write model) and indexed/served (OpenSearch read model). */
 data class Offer(
     val offerId: String,
     val source: String,
@@ -10,4 +10,5 @@ data class Offer(
     val url: String,
     val location: String,
     val description: String,
+    val seniority: String,
 )

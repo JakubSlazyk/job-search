@@ -29,6 +29,9 @@ detekt = "2.0.0-alpha.3" # only detekt line that supports JDK 25 (1.23.x crashes
 jsoup = "1.18.3"         # static-HTML parsing for scrape sources
 resilience4j = "2.2.0"   # retry / circuit-breaker on outbound source fetches (reactor operators)
 
+# --- offer-service (Phase 1.4): OpenSearch read side / CQRS ---
+opensearch = "2.25.0"             # OpenSearch Java client (targets OpenSearch 2.x; see CLAUDE.md Data & AI)
+
 [libraries]
 # --- Gradle plugin artifacts (build-logic classpath; pins plugin versions monorepo-wide) ---
 kotlin-gradlePlugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
@@ -69,6 +72,9 @@ jsoup = { module = "org.jsoup:jsoup", version.ref = "jsoup" }
 resilience4j-reactor = { module = "io.github.resilience4j:resilience4j-reactor", version.ref = "resilience4j" }
 resilience4j-circuitbreaker = { module = "io.github.resilience4j:resilience4j-circuitbreaker", version.ref = "resilience4j" }
 resilience4j-retry = { module = "io.github.resilience4j:resilience4j-retry", version.ref = "resilience4j" }
+
+# --- offer-service OpenSearch read side (Phase 1.4) ---
+opensearch-java = { module = "org.opensearch.client:opensearch-java", version.ref = "opensearch" }
 
 [plugins]
 # Spring Boot / Kotlin plugins are applied through build-logic convention plugins, not here.
