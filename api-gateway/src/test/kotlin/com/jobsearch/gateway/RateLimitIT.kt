@@ -62,6 +62,7 @@ class RateLimitIT {
         @JvmStatic
         fun startStub() {
             offerService.start()
+            OidcDiscoveryStub.register(offerService)
         }
 
         @AfterAll
@@ -74,6 +75,7 @@ class RateLimitIT {
         @DynamicPropertySource
         fun routeProperties(registry: DynamicPropertyRegistry) {
             registry.add("OFFER_SERVICE_URI") { offerService.baseUrl() }
+            registry.add("KEYCLOAK_ISSUER_URI") { "${offerService.baseUrl()}/realms/job-search" }
         }
     }
 }

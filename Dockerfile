@@ -22,12 +22,14 @@ COPY collection-service ./collection-service
 COPY processing-service ./processing-service
 COPY offer-service ./offer-service
 COPY api-gateway ./api-gateway
+COPY user-service ./user-service
 
 # bootJar (not build) → only executable jars, no -plain.jar and no tests here (tests run in CI /
 # `./gradlew build`). All service jars build in one Gradle invocation.
 RUN sed -i 's/\r$//' gradlew && chmod +x gradlew && \
     ./gradlew --no-daemon \
-      :collection-service:bootJar :processing-service:bootJar :offer-service:bootJar :api-gateway:bootJar
+      :collection-service:bootJar :processing-service:bootJar :offer-service:bootJar \
+      :api-gateway:bootJar :user-service:bootJar
 
 # --- runtime stage -----------------------------------------------------------------------------
 FROM eclipse-temurin:25-jre AS runtime

@@ -33,3 +33,7 @@ include(":offer-service")
 // (REST + GraphQL), with correlation-ID propagation and in-process rate limiting. BFF/OAuth2
 // deferred to Phase 2 (see docs/phase-1-plan.md §1.7, ADR 0004).
 include(":api-gateway")
+
+// Phase 2.1: user-service — first protected service in the auth walking skeleton (servlet resource
+// server, GET /api/v1/users/me). See docs/phase-2-plan.md §2.1, ADR 0004.
+include(":user-service")

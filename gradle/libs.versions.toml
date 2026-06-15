@@ -29,6 +29,7 @@ mockk = "1.14.5"
 archunit = "1.4.2"       # architecture rules, shared via the common-archtest test-fixtures
 testcontainers = "1.20.6" # integration tests against real Kafka/Postgres; BOM aligns all modules
 wiremock = "3.9.2"        # mock external HTTP APIs for collection-service source adapters
+testcontainersKeycloak = "3.7.0" # dasniko Keycloak Testcontainer (supports Keycloak 26); BFF auth IT
 detekt = "2.0.0-alpha.3" # only detekt line that supports JDK 25 (1.23.x crashes on it);
                          # pre-release build tooling — move to 2.0 GA/RC when released
 
@@ -86,6 +87,7 @@ archunit-junit5 = { module = "com.tngtech.archunit:archunit-junit5", version.ref
 # --- Integration testing (Testcontainers BOM; service modules import it as a test platform) ---
 testcontainers-bom = { module = "org.testcontainers:testcontainers-bom", version.ref = "testcontainers" }
 wiremock = { module = "org.wiremock:wiremock-standalone", version.ref = "wiremock" } # shaded server; avoids Jetty clash with Spring Boot 4
+testcontainers-keycloak = { module = "com.github.dasniko:testcontainers-keycloak", version.ref = "testcontainersKeycloak" } # Keycloak container for the gateway BFF auth IT
 
 # --- collection-service source adapters (Phase 1.2) ---
 jsoup = { module = "org.jsoup:jsoup", version.ref = "jsoup" }

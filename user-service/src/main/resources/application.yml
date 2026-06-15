@@ -1,0 +1,33 @@
+spring:
+  application:
+    name: user-service
+  datasource:
+    url: ${POSTGRES_URL:jdbc:postgresql://localhost:5432/users}
+    username: ${POSTGRES_USER:users}
+    password: ${POSTGRES_PASSWORD:users}
+  flyway:
+    enabled: true
+  # OAuth2 resource server: validate Keycloak-issued JWTs relayed by the gateway BFF. Boot builds the
+  # JwtDecoder from the issuer-uri (OIDC discovery); the common-security servlet chain (§2.0) wires
+  # the SecurityFilterChain + realm-role -> authority mapping. Default localhost:8088 for running via
+  # Gradle; compose overrides KEYCLOAK_ISSUER_URI to the unified host.docker.internal:8088.
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8088/realms/job-search}
+
+# Only health is public; /api/v1/users/** stays protected via the §2.0 chain's "anyRequest authenticated".
+jobsearch:
+  security:
+    public-paths:
+      - "/actuator/health/**"
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+server:
+  port: 8080
