@@ -1,0 +1,2 @@
+com.jobsearch.common.security.ServletResourceServerAutoConfiguration
+com.jobsearch.common.security.ReactiveResourceServerAutoConfiguration

@@ -2,7 +2,8 @@
 # Event backbone: Kafka (KRaft, no ZooKeeper) + Apicurio schema registry. Postgres is the
 # offer-service canonical store (§1.1), runs with wal_level=logical for Debezium (§1.5). OpenSearch
 # is the read model (§1.4); Kafka Connect + Debezium drain the outbox to `offer.published` (§1.5).
-# Keycloak + Redis arrive in Phase 2.
+# Keycloak (identity provider) + Redis (gateway BFF session store) arrive in Phase 2.0 (auth
+# foundation); no service consumes them until 2.1 (ADR 0001 / ADR 0004).
 
 services:
   kafka:
@@ -131,6 +132,50 @@ services:
         curl -sf -X PUT -H 'Content-Type: application/json'
         --data @/connector.json
         http://kafka-connect:8083/connectors/offer-outbox-connector/config
+
+  # Identity provider (Phase 2.0). Imports the committed realm on startup (realm, the web-bff
+  # OAuth2 client for Authorization Code + PKCE, realm roles, and a seed test user) so "docker
+  # compose up" brings auth fully online with no admin-console clicks. Host 8088 (8080 is taken by
+  # offer-service); health endpoint enabled on the 9000 management port.
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.1
+    container_name: js-keycloak
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KC_HOSTNAME_STRICT: "false"
+      KC_HTTP_ENABLED: "true"
+      KC_HEALTH_ENABLED: "true"
+    volumes:
+      - ./infra/keycloak/job-search-realm.json:/opt/keycloak/data/import/job-search-realm.json:ro
+    ports:
+      - "8088:8080"
+    healthcheck:
+      # The Keycloak image ships bash but no curl; probe the management health port over /dev/tcp.
+      test:
+        - "CMD-SHELL"
+        - >
+          exec 3<>/dev/tcp/localhost/9000 &&
+          echo -e 'GET /health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3 &&
+          cat <&3 | grep -q '\"status\": \"UP\"'
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  # Gateway BFF session store (Phase 2.0): Spring Session persists the WebSession (and the
+  # server-side OAuth2 tokens) here so the browser holds only an httpOnly cookie (ADR 0004). Also
+  # backs distributed gateway rate-limit state. Consumed from 2.1 onward.
+  redis:
+    image: redis:7-alpine
+    container_name: js-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   # --- application services (built from the repo via the shared multi-stage Dockerfile) ---------
 
