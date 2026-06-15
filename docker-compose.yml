@@ -275,6 +275,7 @@ services:
       - "host.docker.internal:host-gateway"   # resolve the unified Keycloak issuer on Linux/CI too
     ports:
       - "8084:8080"
+      - "9091:9090"   # internal user.v1 gRPC (§2.2) — exposed for local testing (grpcurl)
     healthcheck:
       test: ["CMD-SHELL", "bash -c '</dev/tcp/localhost/8080' || exit 1"]
       interval: 10s

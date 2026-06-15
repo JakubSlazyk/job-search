@@ -1,10 +1,10 @@
 package com.jobsearch.user
 
 import io.kotest.core.spec.style.StringSpec
+import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
-import io.mockk.slot
 import io.mockk.verify
 import org.springframework.security.oauth2.jwt.Jwt
 import java.time.Instant
@@ -14,43 +14,104 @@ class UserServiceTest :
         val repository = mockk<UserRepository>()
         val service = UserService(repository)
 
-        fun jwt(claims: Map<String, Any>): Jwt =
+        fun jwt(
+            subject: String,
+            claims: Map<String, Any> = emptyMap(),
+        ): Jwt =
             Jwt
                 .withTokenValue("token")
                 .header("alg", "none")
-                .subject("subject-1")
+                .subject(subject)
                 .issuedAt(Instant.now())
                 .expiresAt(Instant.now().plusSeconds(300))
                 .also { builder -> claims.forEach { (k, v) -> builder.claim(k, v) } }
                 .build()
 
-        fun storedUser(
+        fun user(
             subject: String,
-            username: String,
-            email: String?,
-        ) = User(subject, username, email, Instant.now(), Instant.now())
+            username: String = "tester",
+            email: String? = "tester@example.com",
+            displayName: String? = null,
+        ) = User(
+            subject,
+            username,
+            email,
+            displayName,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            Instant.now(),
+            Instant.now(),
+        )
 
-        "upserts using preferred_username and email claims" {
-            every { repository.upsert(any(), any(), any()) } answers
-                { storedUser(firstArg(), secondArg(), thirdArg()) }
+        fun prefs(
+            subject: String,
+            enabled: Boolean = true,
+            locale: String = "en",
+        ) = UserPreferences(subject, enabled, locale)
 
-            val user =
-                service.upsertFromToken(
-                    jwt(mapOf("preferred_username" to "tester", "email" to "tester@example.com")),
+        "getMe provisions the user and default preferences from token claims" {
+            every { repository.upsertUser("s1", "tester", "tester@example.com") } returns user("s1")
+            every { repository.ensurePreferences("s1") } returns prefs("s1")
+
+            val view =
+                service.getMe(
+                    jwt("s1", mapOf("preferred_username" to "tester", "email" to "tester@example.com")),
                 )
 
-            user.username shouldBe "tester"
-            user.email shouldBe "tester@example.com"
-            verify { repository.upsert("subject-1", "tester", "tester@example.com") }
+            view.user.subject shouldBe "s1"
+            view.preferences.emailNotificationsEnabled shouldBe true
+            verify { repository.upsertUser("s1", "tester", "tester@example.com") }
+            verify { repository.ensurePreferences("s1") }
         }
 
-        "falls back to the subject when preferred_username is absent" {
-            val usernameSlot = slot<String>()
-            every { repository.upsert(any(), capture(usernameSlot), any()) } answers
-                { storedUser(firstArg(), usernameSlot.captured, thirdArg()) }
+        "provision falls back to the subject when preferred_username is absent" {
+            every { repository.upsertUser("s1", "s1", null) } returns user("s1", username = "s1", email = null)
+            every { repository.ensurePreferences("s1") } returns prefs("s1")
 
-            service.upsertFromToken(jwt(mapOf("email" to "tester@example.com")))
+            service.getMe(jwt("s1"))
 
-            usernameSlot.captured shouldBe "subject-1"
+            verify { repository.upsertUser("s1", "s1", null) }
+        }
+
+        "updateProfile provisions then applies the profile update" {
+            every { repository.upsertUser(any(), any(), any()) } returns user("s1")
+            every { repository.ensurePreferences("s1") } returns prefs("s1")
+            val request = ProfileUpdateRequest("Test User", null, "Engineer", null, "Warsaw", null, null, null)
+            every { repository.updateProfile("s1", request) } returns user("s1", displayName = "Test User")
+
+            val view = service.updateProfile(jwt("s1", mapOf("preferred_username" to "tester")), request)
+
+            view.user.displayName shouldBe "Test User"
+            verify { repository.updateProfile("s1", request) }
+        }
+
+        "updatePreferences provisions then applies the preferences update" {
+            every { repository.upsertUser(any(), any(), any()) } returns user("s1")
+            every { repository.ensurePreferences("s1") } returns prefs("s1")
+            val request = PreferencesUpdateRequest(emailNotificationsEnabled = false, locale = "pl")
+            every { repository.updatePreferences("s1", request) } returns prefs("s1", enabled = false, locale = "pl")
+
+            val view = service.updatePreferences(jwt("s1"), request)
+
+            view.preferences.emailNotificationsEnabled shouldBe false
+            view.preferences.locale shouldBe "pl"
+        }
+
+        "contactOf returns the user view when present" {
+            every { repository.findUser("s1") } returns user("s1")
+            every { repository.findPreferences("s1") } returns prefs("s1")
+
+            service.contactOf("s1")?.user?.subject shouldBe "s1"
+        }
+
+        "contactOf returns null when the user is unknown" {
+            every { repository.findUser("missing") } returns null
+
+            service.contactOf("missing").shouldBeNull()
         }
     })

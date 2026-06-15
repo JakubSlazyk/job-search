@@ -16,6 +16,15 @@ spring:
       resourceserver:
         jwt:
           issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8088/realms/job-search}
+  # Render Bean Validation / unreadable-body failures as RFC 9457 Problem Details (consistent with
+  # common-web's handler for the rest).
+  mvc:
+    problemdetails:
+      enabled: true
+  # Internal user.v1 gRPC server (§2.2) on its own Netty port, separate from the HTTP port.
+  grpc:
+    server:
+      port: ${GRPC_PORT:9090}
 
 # Only health is public; /api/v1/users/** stays protected via the §2.0 chain's "anyRequest authenticated".
 jobsearch:

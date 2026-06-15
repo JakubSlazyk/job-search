@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+package jobsearch.user.v1;
+
+option java_package = "com.jobsearch.proto.user.v1";
+option java_multiple_files = true;
+
+// Internal gRPC API for user-service (Phase 2.2, §2.2). notification-service (§2.4) resolves a
+// user's contact details by Keycloak subject to deliver matches (email + whether the user opted
+// into email notifications). Versioned via the package (`user.v1`, ADR 0003).
+//
+// Thin by design — grows additively (ADR 0003): add fields, never reuse field numbers.
+service UserContactService {
+  // Point lookup by Keycloak subject. `contact` is unset in the response when no user matches.
+  rpc GetUserContact(GetUserContactRequest) returns (GetUserContactResponse);
+}
+
+// A user's delivery details, resolved for outbound notifications.
+message UserContact {
+  string subject = 1;                    // Keycloak subject (stable identity)
+  string email = 2;
+  string display_name = 3;               // falls back to the username when unset
+  bool email_notifications_enabled = 4;  // user preference: deliver via email
+}
+
+message GetUserContactRequest {
+  string subject = 1;
+}
+
+message GetUserContactResponse {
+  UserContact contact = 1; // unset when not found
+}
