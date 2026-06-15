@@ -18,6 +18,9 @@ dependencies {
 
     // In-process per-client rate limiter (Redis-backed RedisRateLimiter deferred to Phase 2 with the BFF).
     implementation(libs.resilience4j.ratelimiter)
+    // Bounds the per-client RateLimiter cache (size + idle TTL) so high-cardinality client keys can't
+    // grow the heap without limit. Version managed by the Spring Boot BOM.
+    implementation("com.github.ben-manes.caffeine:caffeine")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.boot:spring-boot-starter-webflux") // WebTestClient
