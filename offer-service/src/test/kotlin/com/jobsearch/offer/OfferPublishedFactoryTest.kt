@@ -2,6 +2,7 @@ package com.jobsearch.offer
 
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldNotBeBlank
 import java.time.Instant
 
@@ -25,5 +26,18 @@ class OfferPublishedFactoryTest :
 
         "generates a non-blank event id by default" {
             OfferPublishedFactory.from(offer).eventId.shouldNotBeBlank()
+        }
+
+        "derives the same default event id for identical offer content (idempotent on redelivery)" {
+            val first = OfferPublishedFactory.from(offer).eventId
+            val second = OfferPublishedFactory.from(offer.copy()).eventId
+            first shouldBe second
+        }
+
+        "derives a different default event id when any offer field changes" {
+            val baseline = OfferPublishedFactory.from(offer).eventId
+            OfferPublishedFactory.from(offer.copy(title = "Staff Engineer")).eventId shouldNotBe baseline
+            OfferPublishedFactory.from(offer.copy(description = "updated")).eventId shouldNotBe baseline
+            OfferPublishedFactory.from(offer.copy(seniority = "LEAD")).eventId shouldNotBe baseline
         }
     })
