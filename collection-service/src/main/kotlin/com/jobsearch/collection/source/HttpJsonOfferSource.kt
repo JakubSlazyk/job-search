@@ -3,10 +3,10 @@ package com.jobsearch.collection.source
 import com.google.protobuf.ByteString
 import com.jobsearch.collection.CollectionSourceProperties
 import com.jobsearch.proto.collection.v1.RawOffer
-import io.github.resilience4j.circuitbreaker.CircuitBreaker
+import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry
 import io.github.resilience4j.reactor.circuitbreaker.operator.CircuitBreakerOperator
 import io.github.resilience4j.reactor.retry.RetryOperator
-import io.github.resilience4j.retry.Retry
+import io.github.resilience4j.retry.RetryRegistry
 import org.springframework.stereotype.Component
 import org.springframework.web.reactive.function.client.WebClient
 import reactor.core.publisher.Flux
@@ -22,11 +22,13 @@ import tools.jackson.databind.ObjectMapper
 class HttpJsonOfferSource(
     private val webClient: WebClient,
     private val properties: CollectionSourceProperties,
-    private val retry: Retry,
-    private val circuitBreaker: CircuitBreaker,
+    retryRegistry: RetryRegistry,
+    circuitBreakerRegistry: CircuitBreakerRegistry,
     private val objectMapper: ObjectMapper,
 ) : OfferSource {
     override val sourceName = "http-json"
+    private val retry = retryRegistry.retry(sourceName)
+    private val circuitBreaker = circuitBreakerRegistry.circuitBreaker(sourceName)
 
     override fun fetch(): Flux<RawOffer> {
         val url = properties.httpJsonUrl

@@ -6,8 +6,8 @@ import com.github.tomakehurst.wiremock.client.WireMock.get
 import com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration.options
 import com.jobsearch.collection.CollectionSourceProperties
-import io.github.resilience4j.circuitbreaker.CircuitBreaker
-import io.github.resilience4j.retry.Retry
+import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry
+import io.github.resilience4j.retry.RetryRegistry
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
 import org.springframework.web.reactive.function.client.WebClient
@@ -55,6 +55,6 @@ private fun htmlScrapeSource(baseUrl: String): HtmlScrapeOfferSource =
     HtmlScrapeOfferSource(
         WebClient.builder().build(),
         CollectionSourceProperties(htmlScrapeUrl = "$baseUrl/offers.html"),
-        Retry.ofDefaults("test"),
-        CircuitBreaker.ofDefaults("test"),
+        RetryRegistry.ofDefaults(),
+        CircuitBreakerRegistry.ofDefaults(),
     )

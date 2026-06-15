@@ -9,8 +9,8 @@ import com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration.options
 import com.github.tomakehurst.wiremock.stubbing.Scenario
 import com.jobsearch.collection.CollectionSourceProperties
-import io.github.resilience4j.circuitbreaker.CircuitBreaker
-import io.github.resilience4j.retry.Retry
+import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry
+import io.github.resilience4j.retry.RetryRegistry
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.shouldBe
@@ -76,7 +76,7 @@ private fun httpJsonSource(baseUrl: String): HttpJsonOfferSource =
     HttpJsonOfferSource(
         WebClient.builder().build(),
         CollectionSourceProperties(httpJsonUrl = "$baseUrl/api/offers"),
-        Retry.ofDefaults("test"),
-        CircuitBreaker.ofDefaults("test"),
+        RetryRegistry.ofDefaults(),
+        CircuitBreakerRegistry.ofDefaults(),
         JsonMapper.builder().build(),
     )
