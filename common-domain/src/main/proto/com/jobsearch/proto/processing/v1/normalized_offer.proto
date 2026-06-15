@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+package jobsearch.processing.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option java_package = "com.jobsearch.proto.processing.v1";
+option java_multiple_files = true;
+
+// Emitted by processing-service to the `normalized-offers` topic after source-agnostic
+// canonicalization + dedupe of a RawOffer. Consumed by offer-service. See docs/phase-1-plan.md §1.3.
+//
+// Thin by design — grows additively (ADR 0003): add fields, never reuse field numbers.
+message NormalizedOffer {
+  string offer_id = 1;      // stable dedupe identity: "<source>:<external_id>" (OfferIdentity)
+  string source = 2;
+  string external_id = 3;
+  string title = 4;
+  string company = 5;
+  string url = 6;
+  string location = 7;
+  string description = 8;
+  google.protobuf.Timestamp normalized_at = 9;
+  Seniority seniority = 10; // derived from the title during canonicalization (§1.3)
+}
+
+// Canonical seniority level inferred from the offer title.
+enum Seniority {
+  SENIORITY_UNSPECIFIED = 0;
+  JUNIOR = 1;
+  MID = 2;
+  SENIOR = 3;
+  LEAD = 4;
+}

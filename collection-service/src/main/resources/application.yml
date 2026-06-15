@@ -1,0 +1,20 @@
+spring:
+  application:
+    name: collection-service
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.ByteArraySerializer
+
+collection:
+  sources:
+    # Blank = inactive. Point at a real endpoint (or a stub) to activate the adapter.
+    http-json-url: ${COLLECTION_HTTP_JSON_URL:}
+    html-scrape-url: ${COLLECTION_HTML_SCRAPE_URL:}
+  polling:
+    enabled: ${COLLECTION_POLLING_ENABLED:false}
+    interval-ms: ${COLLECTION_POLLING_INTERVAL_MS:60000}
+
+server:
+  port: 8081

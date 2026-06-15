@@ -1,0 +1,39 @@
+spring:
+  application:
+    name: offer-service
+  datasource:
+    url: ${POSTGRES_URL:jdbc:postgresql://localhost:5432/offers}
+    username: ${POSTGRES_USER:offers}
+    password: ${POSTGRES_PASSWORD:offers}
+  flyway:
+    enabled: true
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: offer-service
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.ByteArrayDeserializer
+  # §1.6 GraphQL query side. GraphiQL explorer at /graphiql for local browsing.
+  graphql:
+    graphiql:
+      enabled: true
+  # §1.6 internal gRPC server (offer.v1) on its own Netty port, separate from the HTTP port.
+  grpc:
+    server:
+      port: ${GRPC_PORT:9090}
+
+opensearch:
+  scheme: ${OPENSEARCH_SCHEME:http}
+  host: ${OPENSEARCH_HOST:localhost}
+  port: ${OPENSEARCH_PORT:9200}
+
+# Transactional-outbox housekeeping (§1.5): drained rows older than `retention` are purged every
+# `purge-interval-ms`. Debezium reads the WAL, so deletion after the window is safe.
+app:
+  outbox:
+    retention: ${OUTBOX_RETENTION:PT1H}
+    purge-interval-ms: ${OUTBOX_PURGE_INTERVAL_MS:600000}
+
+server:
+  port: 8080

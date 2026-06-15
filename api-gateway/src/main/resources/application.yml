@@ -1,0 +1,46 @@
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      server:
+        webflux:
+          routes:
+            # REST browse/search surface. Keep the /api/v1 prefix (URI versioning) — no rewrite.
+            - id: offer-rest
+              uri: ${OFFER_SERVICE_URI:http://localhost:8080}
+              predicates:
+                - Path=/api/v1/offers/**
+            # GraphQL endpoint + GraphiQL explorer (§1.6 query side).
+            - id: offer-graphql
+              uri: ${OFFER_SERVICE_URI:http://localhost:8080}
+              predicates:
+                - Path=/graphql,/graphiql,/graphiql/**
+            # OpenAPI docs + Swagger UI (§1.6 springdoc).
+            - id: offer-docs
+              uri: ${OFFER_SERVICE_URI:http://localhost:8080}
+              predicates:
+                - Path=/v3/api-docs/**,/swagger-ui/**,/swagger-ui.html
+
+# In-process per-client rate limiter (Phase 1.7). Redis-backed distributed limiting arrives with the
+# BFF in Phase 2 (ADR 0004).
+gateway:
+  rate-limit:
+    enabled: ${GATEWAY_RATE_LIMIT_ENABLED:true}
+    limit-for-period: ${GATEWAY_RATE_LIMIT_PER_PERIOD:100}
+    refresh-period: ${GATEWAY_RATE_LIMIT_REFRESH:1s}
+
+# Observability entry point: expose the gateway route view + health for local inspection. The
+# gateway endpoint is access-disabled by default; read-only exposes the route view without allowing
+# runtime route manipulation.
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, gateway
+  endpoint:
+    gateway:
+      access: read-only
+
+server:
+  port: 8082

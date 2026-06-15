@@ -1,0 +1,9 @@
+# Keep the build context small and force a clean in-container build (don't ship host build outputs).
+**/build/
+**/.gradle/
+.gradle/
+.git/
+.idea/
+*.iml
+frontend/
+docs/

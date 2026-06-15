@@ -1,0 +1,52 @@
+syntax = "proto3";
+
+package jobsearch.offer.v1;
+
+option java_package = "com.jobsearch.proto.offer.v1";
+option java_multiple_files = true;
+
+// Internal gRPC read API for offer-service (Phase 1.6, §1.6). Defined now even though callers
+// arrive in Phase 3 (chatbot, CV tailoring) — they fetch canonical offers by id or run a filtered
+// search against the OpenSearch read model. Versioned via the package (`offer.v1`, ADR 0003).
+//
+// Thin by design — grows additively (ADR 0003): add fields, never reuse field numbers.
+service OfferQueryService {
+  // Point lookup. `offer` is unset in the response when no offer matches the id.
+  rpc GetOffer(GetOfferRequest) returns (GetOfferResponse);
+  // Filtered, paginated browse — mirrors the REST/GraphQL search surface.
+  rpc SearchOffers(SearchOffersRequest) returns (SearchOffersResponse);
+}
+
+// Canonical offer projection served from the read model (mirrors the REST/GraphQL `Offer`).
+message Offer {
+  string offer_id = 1;     // canonical id ("<source>:<external_id>")
+  string source = 2;
+  string external_id = 3;
+  string title = 4;
+  string company = 5;
+  string url = 6;
+  string location = 7;
+  string description = 8;
+  string seniority = 9;
+}
+
+message GetOfferRequest {
+  string offer_id = 1;
+}
+
+message GetOfferResponse {
+  Offer offer = 1; // unset when not found
+}
+
+message SearchOffersRequest {
+  string query = 1;     // optional full-text query over title/company/description
+  string source = 2;    // optional exact-match filters
+  string location = 3;
+  string seniority = 4;
+  int32 page = 5;       // zero-based
+  int32 size = 6;       // defaults to 20 when <= 0
+}
+
+message SearchOffersResponse {
+  repeated Offer offers = 1;
+}

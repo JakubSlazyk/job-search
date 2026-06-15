@@ -1,7 +1,8 @@
-# Local infrastructure for job-search — grown incrementally (see docs/build-plan.md).
-# Phase 0 / step 1.1 needs only the event backbone: Kafka (KRaft, no ZooKeeper) and the
-# Apicurio schema registry. Postgres / OpenSearch / Kafka-Connect+Debezium arrive with
-# offer-service (step 1.3); Keycloak + Redis in Phase 2.
+# Local infrastructure for job-search — grown incrementally (see docs/phase-1-plan.md).
+# Event backbone: Kafka (KRaft, no ZooKeeper) + Apicurio schema registry. Postgres is the
+# offer-service canonical store (§1.1), runs with wal_level=logical for Debezium (§1.5). OpenSearch
+# is the read model (§1.4); Kafka Connect + Debezium drain the outbox to `offer.published` (§1.5).
+# Keycloak + Redis arrive in Phase 2.
 
 services:
   kafka:
@@ -31,10 +32,186 @@ services:
   schema-registry:
     image: apicurio/apicurio-registry-mem:2.6.5.Final
     container_name: js-apicurio
+    # Host 8085 (not 8081) to leave 8080/8081 for the offer-/collection-service HTTP ports.
     ports:
-      - "8081:8080"
+      - "8085:8080"
     depends_on:
       kafka:
         condition: service_healthy
     environment:
       QUARKUS_PROFILE: prod
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: js-postgres
+    # wal_level=logical + replication slots/senders let Debezium (pgoutput) tail the WAL (§1.5).
+    command:
+      - "postgres"
+      - "-c"
+      - "wal_level=logical"
+      - "-c"
+      - "max_wal_senders=10"
+      - "-c"
+      - "max_replication_slots=10"
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: offers
+      POSTGRES_USER: offers
+      POSTGRES_PASSWORD: offers
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U offers -d offers"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  opensearch:
+    image: opensearchproject/opensearch:2.19.0
+    container_name: js-opensearch
+    ports:
+      - "9200:9200"
+    environment:
+      discovery.type: single-node
+      DISABLE_SECURITY_PLUGIN: "true"
+      DISABLE_INSTALL_DEMO_CONFIG: "true"
+      OPENSEARCH_JAVA_OPTS: "-Xms512m -Xmx512m"
+      bootstrap.memory_lock: "true"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+
+  # Kafka Connect + Debezium (§1.5): tails the Postgres WAL and drains the offer-service outbox to
+  # `offer.published`. The image bundles the Postgres connector and the Outbox Event Router SMT.
+  kafka-connect:
+    image: quay.io/debezium/connect:3.0.0.Final
+    container_name: js-kafka-connect
+    ports:
+      - "8083:8083"
+    depends_on:
+      kafka:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    environment:
+      BOOTSTRAP_SERVERS: kafka:29092
+      GROUP_ID: offer-connect
+      CONFIG_STORAGE_TOPIC: connect-configs
+      OFFSET_STORAGE_TOPIC: connect-offsets
+      STATUS_STORAGE_TOPIC: connect-status
+      CONFIG_STORAGE_REPLICATION_FACTOR: 1
+      OFFSET_STORAGE_REPLICATION_FACTOR: 1
+      STATUS_STORAGE_REPLICATION_FACTOR: 1
+
+  # One-shot: waits for Connect's REST API, registers the outbox connector, then exits — so
+  # "docker compose up" brings the whole CDC path online with no manual curl. It polls itself (curl
+  # is guaranteed in this image, not in the connect image) and the PUT is idempotent on the config.
+  connect-init:
+    image: curlimages/curl:8.11.0
+    container_name: js-connect-init
+    depends_on:
+      kafka-connect:
+        condition: service_started
+      offer-service:
+        condition: service_healthy   # ensures Flyway has created public.outbox before registration
+    restart: "no"
+    volumes:
+      - ./infra/debezium/offer-outbox-connector.json:/connector.json:ro
+    entrypoint:
+      - "sh"
+      - "-c"
+      - >
+        until curl -sf http://kafka-connect:8083/connectors >/dev/null; do
+        echo 'waiting for kafka-connect...'; sleep 3; done;
+        curl -sf -X PUT -H 'Content-Type: application/json'
+        --data @/connector.json
+        http://kafka-connect:8083/connectors/offer-outbox-connector/config
+
+  # --- application services (built from the repo via the shared multi-stage Dockerfile) ---------
+
+  # Reactive multi-source collector (§1.2). Trigger a run with POST /api/v1/collect.
+  collection-service:
+    build:
+      context: .
+      args:
+        MODULE: collection-service
+    image: job-search/collection-service:latest
+    container_name: js-collection-service
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+    ports:
+      - "8081:8081"
+
+  # Stateless Kafka->Kafka canonicalizer (§1.3). No HTTP port.
+  processing-service:
+    build:
+      context: .
+      args:
+        MODULE: processing-service
+    image: job-search/processing-service:latest
+    container_name: js-processing-service
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+
+  # Canonical store + OpenSearch read model + transactional outbox (§1.1/1.4/1.5). Flyway creates
+  # the offers and outbox tables on startup; the TCP healthcheck signals migrations are done and the
+  # web server is accepting requests (connect-init waits on it before registering the connector).
+  offer-service:
+    build:
+      context: .
+      args:
+        MODULE: offer-service
+    image: job-search/offer-service:latest
+    container_name: js-offer-service
+    depends_on:
+      kafka:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      opensearch:
+        condition: service_healthy
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      POSTGRES_URL: jdbc:postgresql://postgres:5432/offers
+      POSTGRES_USER: offers
+      POSTGRES_PASSWORD: offers
+      OPENSEARCH_SCHEME: http
+      OPENSEARCH_HOST: opensearch
+      OPENSEARCH_PORT: 9200
+    ports:
+      - "8080:8080"
+      - "9090:9090"   # internal gRPC API (offer.v1, §1.6) — exposed for local testing (grpcurl)
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/localhost/8080' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  # Single entry point (§1.7): Spring Cloud Gateway routes the browser to offer-service (REST +
+  # GraphQL + OpenAPI), propagates the correlation id downstream, and rate-limits per client. BFF/
+  # OAuth2 + Redis-backed limiting are deferred to Phase 2 (ADR 0004).
+  api-gateway:
+    build:
+      context: .
+      args:
+        MODULE: api-gateway
+    image: job-search/api-gateway:latest
+    container_name: js-api-gateway
+    depends_on:
+      offer-service:
+        condition: service_healthy
+    environment:
+      OFFER_SERVICE_URI: http://offer-service:8080
+    ports:
+      - "8082:8082"

@@ -6,11 +6,18 @@
 java = "25"
 kotlin = "2.3.21"
 springBoot = "4.1.0"
+springCloud = "2025.1.2"   # Oakwood release train — compatible with Spring Boot 4.1 (api-gateway, Phase 1.7)
 
 # Contracts: Protobuf (single IDL for Kafka events + gRPC) — see ADR 0003
 protobuf = "4.34.2"      # protoc + protobuf-java/-kotlin runtime (kept in lockstep)
 protobufPlugin = "0.10.0" # com.google.protobuf Gradle plugin
 grpc = "1.73.0"          # grpc-java (protoc-gen-grpc-java + runtime stubs)
+# Runtime grpc-java alignment for offer-service (Phase 1.6). Spring Boot 4.1.0's grpc-bom pins
+# io.grpc to 1.80.0, but spring-grpc-core 1.1.0 (pulled by spring-boot-starter-grpc-server) hard-
+# requires grpc-core/grpc-api 1.81.0 — leaving grpc-netty at 1.80.0 and crashing the server with
+# AbstractMethodError. Importing grpc-bom 1.81.0 realigns the whole io.grpc group. Drop when a
+# Boot patch ships a consistent grpc-bom.
+grpcRuntime = "1.81.0"
 grpcKotlin = "1.4.3"     # grpc-kotlin (protoc-gen-grpc-kotlin + coroutine stubs)
 
 # Quality / test tooling
@@ -20,8 +27,26 @@ ktlint = "1.5.0"
 kotest = "6.0.3"
 mockk = "1.14.5"
 archunit = "1.4.2"       # architecture rules, shared via the common-archtest test-fixtures
+testcontainers = "1.20.6" # integration tests against real Kafka/Postgres; BOM aligns all modules
+wiremock = "3.9.2"        # mock external HTTP APIs for collection-service source adapters
 detekt = "2.0.0-alpha.3" # only detekt line that supports JDK 25 (1.23.x crashes on it);
                          # pre-release build tooling — move to 2.0 GA/RC when released
+
+# --- collection-service (Phase 1.2): scraping + resilience ---
+jsoup = "1.18.3"         # static-HTML parsing for scrape sources
+resilience4j = "2.2.0"   # retry / circuit-breaker on outbound source fetches (reactor operators);
+                         # also the api-gateway in-process rate limiter (Phase 1.7)
+
+# --- offer-service (Phase 1.4): OpenSearch read side / CQRS ---
+opensearch = "2.25.0"             # OpenSearch Java client (targets OpenSearch 2.x; see CLAUDE.md Data & AI)
+
+# --- offer-service (Phase 1.5): transactional outbox + Debezium CDC ---
+debezium = "3.0.0.Final"          # matches the quay.io/debezium/connect image; only used by tests (DebeziumContainer)
+
+# --- offer-service (Phase 1.6): GraphQL + gRPC + OpenAPI APIs ---
+# GraphQL + gRPC server starters are managed by the Spring Boot 4.1 BOM (no version here).
+springdoc = "3.0.3"               # springdoc-openapi for Spring Boot 4.x (2.x targets Boot 3); REST/OpenAPI docs
+restAssured = "6.0.0"             # not in the Boot 4.1 BOM; pinned here (matches Spring 7 MockMvc)
 
 [libraries]
 # --- Gradle plugin artifacts (build-logic classpath; pins plugin versions monorepo-wide) ---
@@ -35,12 +60,16 @@ protobuf-gradlePlugin = { module = "com.google.protobuf:protobuf-gradle-plugin",
 # --- Spring Boot BOM (version alignment for library modules that don't apply the Boot app plugin) ---
 spring-boot-dependencies = { module = "org.springframework.boot:spring-boot-dependencies", version.ref = "springBoot" }
 
+# --- Spring Cloud BOM (api-gateway, Phase 1.7) — aligns spring-cloud-* with the release train ---
+spring-cloud-dependencies = { module = "org.springframework.cloud:spring-cloud-dependencies", version.ref = "springCloud" }
+
 # --- Protobuf / gRPC (codegen tool artifacts + runtime; wired by the job-search.protobuf plugin) ---
 protoc = { module = "com.google.protobuf:protoc", version.ref = "protobuf" }
 protobuf-java = { module = "com.google.protobuf:protobuf-java", version.ref = "protobuf" }
 protobuf-kotlin = { module = "com.google.protobuf:protobuf-kotlin", version.ref = "protobuf" }
 grpc-protocGen = { module = "io.grpc:protoc-gen-grpc-java", version.ref = "grpc" }
 grpc-kotlin-protocGen = { module = "io.grpc:protoc-gen-grpc-kotlin", version.ref = "grpcKotlin" }
+grpc-bom = { module = "io.grpc:grpc-bom", version.ref = "grpcRuntime" } # realigns io.grpc to 1.81.0 (see grpcRuntime)
 grpc-stub = { module = "io.grpc:grpc-stub", version.ref = "grpc" }
 grpc-protobuf = { module = "io.grpc:grpc-protobuf", version.ref = "grpc" }
 grpc-kotlin-stub = { module = "io.grpc:grpc-kotlin-stub", version.ref = "grpcKotlin" }
@@ -53,6 +82,30 @@ mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
 
 # --- Architecture testing (consumed via common-archtest test-fixtures) ---
 archunit-junit5 = { module = "com.tngtech.archunit:archunit-junit5", version.ref = "archunit" }
+
+# --- Integration testing (Testcontainers BOM; service modules import it as a test platform) ---
+testcontainers-bom = { module = "org.testcontainers:testcontainers-bom", version.ref = "testcontainers" }
+wiremock = { module = "org.wiremock:wiremock-standalone", version.ref = "wiremock" } # shaded server; avoids Jetty clash with Spring Boot 4
+
+# --- collection-service source adapters (Phase 1.2) ---
+jsoup = { module = "org.jsoup:jsoup", version.ref = "jsoup" }
+resilience4j-reactor = { module = "io.github.resilience4j:resilience4j-reactor", version.ref = "resilience4j" }
+resilience4j-circuitbreaker = { module = "io.github.resilience4j:resilience4j-circuitbreaker", version.ref = "resilience4j" }
+resilience4j-retry = { module = "io.github.resilience4j:resilience4j-retry", version.ref = "resilience4j" }
+
+# --- api-gateway in-process rate limiter (Phase 1.7) — per-client RateLimiter from the registry ---
+resilience4j-ratelimiter = { module = "io.github.resilience4j:resilience4j-ratelimiter", version.ref = "resilience4j" }
+
+# --- offer-service OpenSearch read side (Phase 1.4) ---
+opensearch-java = { module = "org.opensearch.client:opensearch-java", version.ref = "opensearch" }
+
+# --- offer-service outbox + Debezium CDC tests (Phase 1.5; versions via the Testcontainers BOM) ---
+testcontainers-kafka = { module = "org.testcontainers:kafka" }
+debezium-testcontainers = { module = "io.debezium:debezium-testing-testcontainers", version.ref = "debezium" }
+
+# --- offer-service GraphQL + gRPC + OpenAPI (Phase 1.6) ---
+springdoc-openapi-starter-webmvc-ui = { module = "org.springdoc:springdoc-openapi-starter-webmvc-ui", version.ref = "springdoc" }
+rest-assured-spring-mock-mvc = { module = "io.rest-assured:spring-mock-mvc", version.ref = "restAssured" } # REST tests over MockMvc
 
 [plugins]
 # Spring Boot / Kotlin plugins are applied through build-logic convention plugins, not here.

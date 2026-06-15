@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package jobsearch.collection.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option java_package = "com.jobsearch.proto.collection.v1";
+option java_multiple_files = true;
+
+// Emitted by collection-service to the `raw-offers` topic. Structurally UNIFORM across all sources:
+// each per-source adapter (an anti-corruption layer) maps its source's shape into this message, so
+// processing-service stays source-agnostic. See ADR 0005 and docs/phase-1-plan.md §1.0.
+//
+// Thin by design — grows additively (ADR 0003): add fields, never reuse field numbers.
+message RawOffer {
+  // --- Provenance ---
+  string source = 1;        // source identifier, e.g. "justjoinit"
+  string external_id = 2;   // the offer's id within that source; with `source` forms the offer_id
+  google.protobuf.Timestamp fetched_at = 3;
+
+  // --- Best-effort extracted fields (uniform shape across sources) ---
+  string title = 4;
+  string company = 5;
+  string url = 6;
+  string location = 7;
+  string description = 8;
+
+  // --- Original untouched payload, retained for replay/debug (ADR 0005) ---
+  bytes raw_content = 9;    // the source's original JSON/HTML
+  string content_type = 10; // e.g. "application/json", "text/html"
+}
