@@ -6,6 +6,7 @@
 java = "25"
 kotlin = "2.3.21"
 springBoot = "4.1.0"
+springCloud = "2025.1.2"   # Oakwood release train — compatible with Spring Boot 4.1 (api-gateway, Phase 1.7)
 
 # Contracts: Protobuf (single IDL for Kafka events + gRPC) — see ADR 0003
 protobuf = "4.34.2"      # protoc + protobuf-java/-kotlin runtime (kept in lockstep)
@@ -33,7 +34,8 @@ detekt = "2.0.0-alpha.3" # only detekt line that supports JDK 25 (1.23.x crashes
 
 # --- collection-service (Phase 1.2): scraping + resilience ---
 jsoup = "1.18.3"         # static-HTML parsing for scrape sources
-resilience4j = "2.2.0"   # retry / circuit-breaker on outbound source fetches (reactor operators)
+resilience4j = "2.2.0"   # retry / circuit-breaker on outbound source fetches (reactor operators);
+                         # also the api-gateway in-process rate limiter (Phase 1.7)
 
 # --- offer-service (Phase 1.4): OpenSearch read side / CQRS ---
 opensearch = "2.25.0"             # OpenSearch Java client (targets OpenSearch 2.x; see CLAUDE.md Data & AI)
@@ -57,6 +59,9 @@ protobuf-gradlePlugin = { module = "com.google.protobuf:protobuf-gradle-plugin",
 
 # --- Spring Boot BOM (version alignment for library modules that don't apply the Boot app plugin) ---
 spring-boot-dependencies = { module = "org.springframework.boot:spring-boot-dependencies", version.ref = "springBoot" }
+
+# --- Spring Cloud BOM (api-gateway, Phase 1.7) — aligns spring-cloud-* with the release train ---
+spring-cloud-dependencies = { module = "org.springframework.cloud:spring-cloud-dependencies", version.ref = "springCloud" }
 
 # --- Protobuf / gRPC (codegen tool artifacts + runtime; wired by the job-search.protobuf plugin) ---
 protoc = { module = "com.google.protobuf:protoc", version.ref = "protobuf" }
@@ -87,6 +92,9 @@ jsoup = { module = "org.jsoup:jsoup", version.ref = "jsoup" }
 resilience4j-reactor = { module = "io.github.resilience4j:resilience4j-reactor", version.ref = "resilience4j" }
 resilience4j-circuitbreaker = { module = "io.github.resilience4j:resilience4j-circuitbreaker", version.ref = "resilience4j" }
 resilience4j-retry = { module = "io.github.resilience4j:resilience4j-retry", version.ref = "resilience4j" }
+
+# --- api-gateway in-process rate limiter (Phase 1.7) — per-client RateLimiter from the registry ---
+resilience4j-ratelimiter = { module = "io.github.resilience4j:resilience4j-ratelimiter", version.ref = "resilience4j" }
 
 # --- offer-service OpenSearch read side (Phase 1.4) ---
 opensearch-java = { module = "org.opensearch.client:opensearch-java", version.ref = "opensearch" }

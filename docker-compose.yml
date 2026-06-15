@@ -197,3 +197,21 @@ services:
       interval: 10s
       timeout: 5s
       retries: 20
+
+  # Single entry point (§1.7): Spring Cloud Gateway routes the browser to offer-service (REST +
+  # GraphQL + OpenAPI), propagates the correlation id downstream, and rate-limits per client. BFF/
+  # OAuth2 + Redis-backed limiting are deferred to Phase 2 (ADR 0004).
+  api-gateway:
+    build:
+      context: .
+      args:
+        MODULE: api-gateway
+    image: job-search/api-gateway:latest
+    container_name: js-api-gateway
+    depends_on:
+      offer-service:
+        condition: service_healthy
+    environment:
+      OFFER_SERVICE_URI: http://offer-service:8080
+    ports:
+      - "8082:8082"

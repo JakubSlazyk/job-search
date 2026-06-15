@@ -28,3 +28,8 @@ include(":common-archtest")
 include(":collection-service")
 include(":processing-service")
 include(":offer-service")
+
+// Phase 1.7: Spring Cloud Gateway — single entry point routing the browser to offer-service
+// (REST + GraphQL), with correlation-ID propagation and in-process rate limiting. BFF/OAuth2
+// deferred to Phase 2 (see docs/phase-1-plan.md §1.7, ADR 0004).
+include(":api-gateway")
