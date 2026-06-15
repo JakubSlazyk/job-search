@@ -36,26 +36,21 @@ class OfferGrpcService(
         request: SearchOffersRequest,
         responseObserver: StreamObserver<SearchOffersResponse>,
     ) {
-        val size = if (request.size <= 0) DEFAULT_SIZE else request.size
         val hits =
             searchIndex.search(
-                OfferSearchCriteria(
+                OfferSearchCriteria.paged(
                     query = request.query,
                     source = request.source.ifBlank { null },
                     location = request.location.ifBlank { null },
                     seniority = request.seniority.ifBlank { null },
-                    from = request.page * size,
-                    size = size,
+                    page = request.page,
+                    size = request.size,
                 ),
             )
         responseObserver.onNext(
             SearchOffersResponse.newBuilder().addAllOffers(hits.map { it.toProto() }).build(),
         )
         responseObserver.onCompleted()
-    }
-
-    private companion object {
-        const val DEFAULT_SIZE = 20
     }
 }
 

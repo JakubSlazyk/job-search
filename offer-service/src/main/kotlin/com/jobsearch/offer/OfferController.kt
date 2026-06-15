@@ -33,14 +33,7 @@ class OfferController(
         @RequestParam(defaultValue = "20") size: Int,
     ): List<Offer> =
         searchIndex.search(
-            OfferSearchCriteria(
-                query = query.orEmpty(),
-                source = source,
-                location = location,
-                seniority = seniority,
-                from = page * size,
-                size = size,
-            ),
+            OfferSearchCriteria.paged(query, source, location, seniority, page, size),
         )
 
     @GetMapping("/{offerId}")

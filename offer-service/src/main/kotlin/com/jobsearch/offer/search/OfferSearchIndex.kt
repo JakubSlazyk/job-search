@@ -34,8 +34,44 @@ data class OfferSearchCriteria(
     val location: String? = null,
     val seniority: String? = null,
     val from: Int = 0,
-    val size: Int = 20,
-)
+    val size: Int = DEFAULT_SIZE,
+) {
+    companion object {
+        const val DEFAULT_SIZE = 20
+        const val MAX_SIZE = 100
+
+        /** OpenSearch's default `index.max_result_window`: `from + size` must not exceed it. */
+        const val MAX_RESULT_WINDOW = 10_000
+
+        /**
+         * Builds criteria from client-supplied `page`/`size`, clamping both so untrusted input can't
+         * reach OpenSearch unbounded: `size` is held to `1..MAX_SIZE` (with `<= 0` meaning "default",
+         * matching the gRPC contract), `page` floored at 0, the `page * size` offset computed in `Long`
+         * to avoid overflow, and `from` capped so `from + size` stays within [MAX_RESULT_WINDOW].
+         */
+        fun paged(
+            query: String?,
+            source: String?,
+            location: String?,
+            seniority: String?,
+            page: Int,
+            size: Int,
+        ): OfferSearchCriteria {
+            val safeSize =
+                when {
+                    size <= 0 -> DEFAULT_SIZE
+                    size > MAX_SIZE -> MAX_SIZE
+                    else -> size
+                }
+            val safePage = page.coerceAtLeast(0)
+            val from =
+                (safePage.toLong() * safeSize)
+                    .coerceAtMost((MAX_RESULT_WINDOW - safeSize).toLong())
+                    .toInt()
+            return OfferSearchCriteria(query.orEmpty(), source, location, seniority, from, safeSize)
+        }
+    }
+}
 
 /**
  * OpenSearch read model (CQRS query side): indexes offers on upsert and serves browse / full-text
