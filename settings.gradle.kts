@@ -41,3 +41,8 @@ include(":user-service")
 // Phase 2.3: tracker-service — layered application tracker (protected REST CRUD) that keeps a local
 // denormalized copy of offer fields by consuming `offer.published` (enrichment). See docs/phase-2-plan.md §2.3.
 include(":tracker-service")
+
+// Phase 2.4: notification-service — reactive (WebFlux + WebSockets) matcher. Consumes `offer.published`
+// (reactor-kafka), matches user criteria, resolves contacts via user.v1 gRPC, and pushes via email
+// (Mailpit) + a live WebSocket. R2DBC persistence. See docs/phase-2-plan.md §2.4, ADR 0001.
+include(":notification-service")

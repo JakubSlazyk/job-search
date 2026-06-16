@@ -186,6 +186,20 @@ services:
       timeout: 5s
       retries: 10
 
+  # Local SMTP capture (Phase 2.4): notification-service sends match emails here instead of a real
+  # mail server. The web UI (host 8025) shows every captured message; SMTP listens on 1025.
+  mailpit:
+    image: axllent/mailpit:v1.21
+    container_name: js-mailpit
+    ports:
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # web UI
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://localhost:8025/readyz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
   # --- application services (built from the repo via the shared multi-stage Dockerfile) ---------
 
   # Reactive multi-source collector (§1.2). Trigger a run with POST /api/v1/collect.
@@ -309,6 +323,48 @@ services:
       - "host.docker.internal:host-gateway"   # resolve the unified Keycloak issuer on Linux/CI too
     ports:
       - "8086:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/localhost/8080' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  # Phase 2.4: reactive (WebFlux + WebSockets) notification-service. Validates the relayed Keycloak JWT,
+  # consumes `offer.published` (reactor-kafka), matches user criteria, resolves contacts over the
+  # user.v1 gRPC client, and pushes matches by email (Mailpit) + a live WebSocket. R2DBC for runtime,
+  # JDBC only for Flyway migrations on its own `notification` DB.
+  notification-service:
+    build:
+      context: .
+      args:
+        MODULE: notification-service
+    image: job-search/notification-service:latest
+    container_name: js-notification-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+      user-service:
+        condition: service_healthy
+      mailpit:
+        condition: service_healthy
+    environment:
+      KEYCLOAK_ISSUER_URI: http://host.docker.internal:8088/realms/job-search
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      R2DBC_URL: r2dbc:postgresql://postgres:5432/notification
+      JDBC_URL: jdbc:postgresql://postgres:5432/notification
+      POSTGRES_USER: offers
+      POSTGRES_PASSWORD: offers
+      USER_SERVICE_GRPC: static://user-service:9090
+      MAIL_HOST: mailpit
+      MAIL_PORT: 1025
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # resolve the unified Keycloak issuer on Linux/CI too
+    ports:
+      - "8087:8080"
     healthcheck:
       test: ["CMD-SHELL", "bash -c '</dev/tcp/localhost/8080' || exit 1"]
       interval: 10s
