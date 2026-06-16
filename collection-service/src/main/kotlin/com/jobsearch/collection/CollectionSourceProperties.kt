@@ -10,4 +10,6 @@ import org.springframework.boot.context.properties.ConfigurationProperties
 data class CollectionSourceProperties(
     val httpJsonUrl: String = "",
     val htmlScrapeUrl: String = "",
+    val himalayasUrl: String = "",
+    val himalayasLimit: Int = 50,
 )
