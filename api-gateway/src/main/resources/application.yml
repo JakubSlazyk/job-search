@@ -31,6 +31,12 @@ spring:
               uri: ${USER_SERVICE_URI:http://localhost:8084}
               predicates:
                 - Path=/api/v1/users/**
+            # Phase 2.3: protected application-tracker endpoints (resource server). Auth enforced by
+            # the BFF; the relayed Bearer token is validated by tracker-service.
+            - id: tracker-service
+              uri: ${TRACKER_SERVICE_URI:http://localhost:8086}
+              predicates:
+                - Path=/api/v1/tracker/**
   # BFF session store (ADR 0004): Redis-backed reactive WebSession keeps the OAuth2 tokens
   # server-side. The browser only carries the httpOnly SESSION cookie.
   data:

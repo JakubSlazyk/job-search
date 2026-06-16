@@ -37,3 +37,7 @@ include(":api-gateway")
 // Phase 2.1: user-service — first protected service in the auth walking skeleton (servlet resource
 // server, GET /api/v1/users/me). See docs/phase-2-plan.md §2.1, ADR 0004.
 include(":user-service")
+
+// Phase 2.3: tracker-service — layered application tracker (protected REST CRUD) that keeps a local
+// denormalized copy of offer fields by consuming `offer.published` (enrichment). See docs/phase-2-plan.md §2.3.
+include(":tracker-service")

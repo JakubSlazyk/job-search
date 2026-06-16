@@ -1,0 +1,47 @@
+spring:
+  application:
+    name: tracker-service
+  datasource:
+    url: ${POSTGRES_URL:jdbc:postgresql://localhost:5432/tracker}
+    username: ${POSTGRES_USER:tracker}
+    password: ${POSTGRES_PASSWORD:tracker}
+  flyway:
+    enabled: true
+  # Consume offer.published to keep the local offer snapshots current (enrichment). Protobuf payloads
+  # arrive as raw bytes (ByteArrayDeserializer), parsed by the listener. earliest so a fresh consumer
+  # group replays the backlog and snapshots converge.
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: tracker-service
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.ByteArrayDeserializer
+  # OAuth2 resource server: validate Keycloak-issued JWTs relayed by the gateway BFF. Boot builds the
+  # JwtDecoder from the issuer-uri (OIDC discovery); the common-security servlet chain (§2.0) wires
+  # the SecurityFilterChain + realm-role -> authority mapping.
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8088/realms/job-search}
+  # Render Bean Validation / unreadable-body failures as RFC 9457 Problem Details (consistent with
+  # common-web's handler for the rest).
+  mvc:
+    problemdetails:
+      enabled: true
+
+# Only health is public; /api/v1/tracker/** stays protected via the §2.0 chain's "anyRequest authenticated".
+jobsearch:
+  security:
+    public-paths:
+      - "/actuator/health/**"
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+server:
+  port: 8080

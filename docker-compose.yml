@@ -282,10 +282,43 @@ services:
       timeout: 5s
       retries: 20
 
+  # Phase 2.3: layered application tracker. Validates the relayed Keycloak JWT, exposes
+  # /api/v1/tracker/applications CRUD against its own `tracker` DB, and consumes `offer.published`
+  # to keep a local denormalized copy of offer display fields (enrichment).
+  tracker-service:
+    build:
+      context: .
+      args:
+        MODULE: tracker-service
+    image: job-search/tracker-service:latest
+    container_name: js-tracker-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    environment:
+      KEYCLOAK_ISSUER_URI: http://host.docker.internal:8088/realms/job-search
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      POSTGRES_URL: jdbc:postgresql://postgres:5432/tracker
+      POSTGRES_USER: offers
+      POSTGRES_PASSWORD: offers
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # resolve the unified Keycloak issuer on Linux/CI too
+    ports:
+      - "8086:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/localhost/8080' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
   # Single entry point + BFF (§1.7 / §2.1, ADR 0004): Spring Cloud Gateway routes the browser to
-  # offer-service (public browse) and the protected user-service, propagates the correlation id, and
-  # rate-limits per client. As the OAuth2 client it runs Authorization Code + PKCE against Keycloak,
-  # keeps tokens in a Redis-backed session, and relays them downstream (TokenRelay).
+  # offer-service (public browse) and the protected user-/tracker-service, propagates the correlation
+  # id, and rate-limits per client. As the OAuth2 client it runs Authorization Code + PKCE against
+  # Keycloak, keeps tokens in a Redis-backed session, and relays them downstream (TokenRelay).
   api-gateway:
     build:
       context: .
@@ -298,6 +331,8 @@ services:
         condition: service_healthy
       user-service:
         condition: service_healthy
+      tracker-service:
+        condition: service_healthy
       keycloak:
         condition: service_healthy
       redis:
@@ -305,6 +340,7 @@ services:
     environment:
       OFFER_SERVICE_URI: http://offer-service:8080
       USER_SERVICE_URI: http://user-service:8080
+      TRACKER_SERVICE_URI: http://tracker-service:8080
       KEYCLOAK_ISSUER_URI: http://host.docker.internal:8088/realms/job-search
       KEYCLOAK_CLIENT_SECRET: web-bff-secret
       REDIS_HOST: redis
