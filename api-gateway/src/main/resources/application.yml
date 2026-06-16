@@ -83,3 +83,9 @@ management:
 
 server:
   port: 8082
+
+# Where the BFF returns the browser after login/logout — the SPA origin. The gateway hosts no UI of
+# its own. In dev the SPA is the Vite server (:5173); set FRONTEND_BASE_URL in other environments
+# (e.g. the same origin as the gateway in production).
+app:
+  frontend-base-url: ${FRONTEND_BASE_URL:http://localhost:5173/}

@@ -67,6 +67,47 @@ class GatewayBffSecurityIT {
             .valueMatches("Location", ".*/oauth2/authorization/keycloak")
     }
 
+    @Test
+    fun `rejects a mutating request to a protected route without a CSRF token`() {
+        client
+            .post()
+            .uri("/api/v1/users/me")
+            .exchange()
+            .expectStatus()
+            .isForbidden
+    }
+
+    @Test
+    fun `accepts the raw XSRF-TOKEN cookie echoed as the header (SPA pattern, not masked)`() {
+        downstream.stubFor(get(urlEqualTo("/api/v1/offers")).willReturn(okJson("[]")))
+
+        // The SPA reads the raw XSRF-TOKEN cookie and echoes it as the X-XSRF-TOKEN header. With the
+        // reactive default (masking) handler this raw value would be rejected (403); the plain
+        // request handler resolves it, so CSRF passes and the request proceeds to the auth redirect.
+        val token =
+            client
+                .get()
+                .uri("/api/v1/offers")
+                .exchange()
+                .expectStatus()
+                .isOk
+                .returnResult(String::class.java)
+                .responseCookies
+                .getFirst("XSRF-TOKEN")!!
+                .value
+
+        client
+            .post()
+            .uri("/api/v1/users/me")
+            .cookie("XSRF-TOKEN", token)
+            .header("X-XSRF-TOKEN", token)
+            .exchange()
+            .expectStatus()
+            .isFound
+            .expectHeader()
+            .valueMatches("Location", ".*/oauth2/authorization/keycloak")
+    }
+
     companion object {
         private val downstream = WireMockServer(options().dynamicPort())
 
