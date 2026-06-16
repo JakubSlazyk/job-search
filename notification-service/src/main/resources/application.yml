@@ -1,0 +1,65 @@
+spring:
+  application:
+    name: notification-service
+  # Reactive Postgres for the runtime read/write path (criteria, idempotency guard, delivery history).
+  # The shared local Postgres only has the `offers` role (it owns the per-service databases created by
+  # infra/postgres/init); default to it so a bare `./gradlew bootRun` connects without overrides.
+  r2dbc:
+    url: ${R2DBC_URL:r2dbc:postgresql://localhost:5432/notification}
+    username: ${POSTGRES_USER:offers}
+    password: ${POSTGRES_PASSWORD:offers}
+  # Flyway can only migrate over JDBC, so it gets its own JDBC URL (same database as r2dbc above).
+  flyway:
+    enabled: true
+    url: ${JDBC_URL:jdbc:postgresql://localhost:5432/notification}
+    user: ${POSTGRES_USER:offers}
+    password: ${POSTGRES_PASSWORD:offers}
+  # Consume offer.published reactively (reactor-kafka). Protobuf payloads arrive as raw bytes; earliest
+  # so a fresh consumer group replays the backlog. Bootstrap servers are read from here by KafkaConfig.
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: notification-service
+      auto-offset-reset: earliest
+  # OAuth2 resource server (reactive chain from common-security, §2.0): validate Keycloak-issued JWTs
+  # relayed by the gateway BFF. Boot builds the ReactiveJwtDecoder from the issuer-uri (OIDC discovery).
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8088/realms/job-search}
+  # user.v1 gRPC client (§2.2): resolve a user's contact details by subject before delivering a match.
+  grpc:
+    client:
+      channels:
+        user-service:
+          address: ${USER_SERVICE_GRPC:static://localhost:9091}
+          negotiation-type: plaintext
+  # Outbound email delivery — Mailpit locally captures everything on its SMTP port.
+  mail:
+    host: ${MAIL_HOST:localhost}
+    port: ${MAIL_PORT:1025}
+  # Render Bean Validation / unreadable-body failures as RFC 9457 Problem Details.
+  webflux:
+    problemdetails:
+      enabled: true
+
+# Only health is public; /api/v1/notifications/** and /ws/** stay protected via the §2.0 reactive
+# chain's "anyExchange authenticated".
+jobsearch:
+  security:
+    public-paths:
+      - "/actuator/health/**"
+
+notification:
+  mail:
+    from: ${MAIL_FROM:notifications@job-search.local}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+server:
+  port: 8080

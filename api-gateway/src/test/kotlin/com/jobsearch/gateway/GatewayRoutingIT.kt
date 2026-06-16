@@ -97,6 +97,7 @@ class GatewayRoutingIT {
         @JvmStatic
         fun startStub() {
             offerService.start()
+            OidcDiscoveryStub.register(offerService)
         }
 
         @AfterAll
@@ -109,6 +110,8 @@ class GatewayRoutingIT {
         @DynamicPropertySource
         fun routeProperties(registry: DynamicPropertyRegistry) {
             registry.add("OFFER_SERVICE_URI") { offerService.baseUrl() }
+            // Build the OAuth2 client registration against the stubbed discovery doc (no real Keycloak).
+            registry.add("KEYCLOAK_ISSUER_URI") { "${offerService.baseUrl()}/realms/job-search" }
         }
     }
 }

@@ -1,0 +1,44 @@
+spring:
+  application:
+    name: user-service
+  datasource:
+    url: ${POSTGRES_URL:jdbc:postgresql://localhost:5432/users}
+    # The shared local Postgres only has the `offers` role (it owns the per-service databases created
+    # by infra/postgres/init); default to it so a bare `./gradlew bootRun` connects without overrides.
+    username: ${POSTGRES_USER:offers}
+    password: ${POSTGRES_PASSWORD:offers}
+  flyway:
+    enabled: true
+  # OAuth2 resource server: validate Keycloak-issued JWTs relayed by the gateway BFF. Boot builds the
+  # JwtDecoder from the issuer-uri (OIDC discovery); the common-security servlet chain (§2.0) wires
+  # the SecurityFilterChain + realm-role -> authority mapping. Default localhost:8088 for running via
+  # Gradle; compose overrides KEYCLOAK_ISSUER_URI to the unified host.docker.internal:8088.
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8088/realms/job-search}
+  # Render Bean Validation / unreadable-body failures as RFC 9457 Problem Details (consistent with
+  # common-web's handler for the rest).
+  mvc:
+    problemdetails:
+      enabled: true
+  # Internal user.v1 gRPC server (§2.2) on its own Netty port, separate from the HTTP port.
+  grpc:
+    server:
+      port: ${GRPC_PORT:9090}
+
+# Only health is public; /api/v1/users/** stays protected via the §2.0 chain's "anyRequest authenticated".
+jobsearch:
+  security:
+    public-paths:
+      - "/actuator/health/**"
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+server:
+  port: 8080

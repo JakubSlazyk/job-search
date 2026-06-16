@@ -2,7 +2,8 @@
 # Event backbone: Kafka (KRaft, no ZooKeeper) + Apicurio schema registry. Postgres is the
 # offer-service canonical store (§1.1), runs with wal_level=logical for Debezium (§1.5). OpenSearch
 # is the read model (§1.4); Kafka Connect + Debezium drain the outbox to `offer.published` (§1.5).
-# Keycloak + Redis arrive in Phase 2.
+# Keycloak (identity provider) + Redis (gateway BFF session store) arrive in Phase 2.0 (auth
+# foundation); no service consumes them until 2.1 (ADR 0001 / ADR 0004).
 
 services:
   kafka:
@@ -59,6 +60,9 @@ services:
       POSTGRES_DB: offers
       POSTGRES_USER: offers
       POSTGRES_PASSWORD: offers
+    # Pre-create the per-service databases (users/tracker/notification) on a fresh volume (§2.1).
+    volumes:
+      - ./infra/postgres/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U offers -d offers"]
       interval: 10s
@@ -132,6 +136,70 @@ services:
         --data @/connector.json
         http://kafka-connect:8083/connectors/offer-outbox-connector/config
 
+  # Identity provider (Phase 2.0). Imports the committed realm on startup (realm, the web-bff
+  # OAuth2 client for Authorization Code + PKCE, realm roles, and a seed test user) so "docker
+  # compose up" brings auth fully online with no admin-console clicks. Host 8088 (8080 is taken by
+  # offer-service); health endpoint enabled on the 9000 management port.
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.1
+    container_name: js-keycloak
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      # Unified issuer (Phase 2.1): one URL the browser AND the in-cluster services both resolve.
+      # Docker Desktop maps host.docker.internal to the host, and 8088 is published, so tokens carry
+      # iss=http://host.docker.internal:8088/realms/job-search consistently and OIDC discovery works
+      # from inside containers. Backchannel-dynamic lets internal callers also reach it directly.
+      KC_HOSTNAME: http://host.docker.internal:8088
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+      KC_HOSTNAME_STRICT: "false"
+      KC_HTTP_ENABLED: "true"
+      KC_HEALTH_ENABLED: "true"
+    volumes:
+      - ./infra/keycloak/job-search-realm.json:/opt/keycloak/data/import/job-search-realm.json:ro
+    ports:
+      - "8088:8080"
+    healthcheck:
+      # The Keycloak image ships bash but no curl; probe the management health port over /dev/tcp.
+      test:
+        - "CMD-SHELL"
+        - >
+          exec 3<>/dev/tcp/localhost/9000 &&
+          echo -e 'GET /health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3 &&
+          cat <&3 | grep -q '\"status\": \"UP\"'
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  # Gateway BFF session store (Phase 2.0): Spring Session persists the WebSession (and the
+  # server-side OAuth2 tokens) here so the browser holds only an httpOnly cookie (ADR 0004). Also
+  # backs distributed gateway rate-limit state. Consumed from 2.1 onward.
+  redis:
+    image: redis:7-alpine
+    container_name: js-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # Local SMTP capture (Phase 2.4): notification-service sends match emails here instead of a real
+  # mail server. The web UI (host 8025) shows every captured message; SMTP listens on 1025.
+  mailpit:
+    image: axllent/mailpit:v1.21
+    container_name: js-mailpit
+    ports:
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # web UI
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://localhost:8025/readyz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
   # --- application services (built from the repo via the shared multi-stage Dockerfile) ---------
 
   # Reactive multi-source collector (§1.2). Trigger a run with POST /api/v1/collect.
@@ -198,9 +266,115 @@ services:
       timeout: 5s
       retries: 20
 
-  # Single entry point (§1.7): Spring Cloud Gateway routes the browser to offer-service (REST +
-  # GraphQL + OpenAPI), propagates the correlation id downstream, and rate-limits per client. BFF/
-  # OAuth2 + Redis-backed limiting are deferred to Phase 2 (ADR 0004).
+  # First protected service (§2.1): servlet OAuth2 resource server. Validates the Keycloak JWT the
+  # gateway relays, exposes GET /api/v1/users/me, and provisions the user row in its own `users` DB.
+  user-service:
+    build:
+      context: .
+      args:
+        MODULE: user-service
+    image: job-search/user-service:latest
+    container_name: js-user-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    environment:
+      KEYCLOAK_ISSUER_URI: http://host.docker.internal:8088/realms/job-search
+      POSTGRES_URL: jdbc:postgresql://postgres:5432/users
+      POSTGRES_USER: offers
+      POSTGRES_PASSWORD: offers
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # resolve the unified Keycloak issuer on Linux/CI too
+    ports:
+      - "8084:8080"
+      - "9091:9090"   # internal user.v1 gRPC (§2.2) — exposed for local testing (grpcurl)
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/localhost/8080' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  # Phase 2.3: layered application tracker. Validates the relayed Keycloak JWT, exposes
+  # /api/v1/tracker/applications CRUD against its own `tracker` DB, and consumes `offer.published`
+  # to keep a local denormalized copy of offer display fields (enrichment).
+  tracker-service:
+    build:
+      context: .
+      args:
+        MODULE: tracker-service
+    image: job-search/tracker-service:latest
+    container_name: js-tracker-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    environment:
+      KEYCLOAK_ISSUER_URI: http://host.docker.internal:8088/realms/job-search
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      POSTGRES_URL: jdbc:postgresql://postgres:5432/tracker
+      POSTGRES_USER: offers
+      POSTGRES_PASSWORD: offers
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # resolve the unified Keycloak issuer on Linux/CI too
+    ports:
+      - "8086:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/localhost/8080' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  # Phase 2.4: reactive (WebFlux + WebSockets) notification-service. Validates the relayed Keycloak JWT,
+  # consumes `offer.published` (reactor-kafka), matches user criteria, resolves contacts over the
+  # user.v1 gRPC client, and pushes matches by email (Mailpit) + a live WebSocket. R2DBC for runtime,
+  # JDBC only for Flyway migrations on its own `notification` DB.
+  notification-service:
+    build:
+      context: .
+      args:
+        MODULE: notification-service
+    image: job-search/notification-service:latest
+    container_name: js-notification-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+      user-service:
+        condition: service_healthy
+      mailpit:
+        condition: service_healthy
+    environment:
+      KEYCLOAK_ISSUER_URI: http://host.docker.internal:8088/realms/job-search
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      R2DBC_URL: r2dbc:postgresql://postgres:5432/notification
+      JDBC_URL: jdbc:postgresql://postgres:5432/notification
+      POSTGRES_USER: offers
+      POSTGRES_PASSWORD: offers
+      USER_SERVICE_GRPC: static://user-service:9090
+      MAIL_HOST: mailpit
+      MAIL_PORT: 1025
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # resolve the unified Keycloak issuer on Linux/CI too
+    ports:
+      - "8087:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/localhost/8080' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  # Single entry point + BFF (§1.7 / §2.1, ADR 0004): Spring Cloud Gateway routes the browser to
+  # offer-service (public browse) and the protected user-/tracker-service, propagates the correlation
+  # id, and rate-limits per client. As the OAuth2 client it runs Authorization Code + PKCE against
+  # Keycloak, keeps tokens in a Redis-backed session, and relays them downstream (TokenRelay).
   api-gateway:
     build:
       context: .
@@ -211,7 +385,23 @@ services:
     depends_on:
       offer-service:
         condition: service_healthy
+      user-service:
+        condition: service_healthy
+      tracker-service:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       OFFER_SERVICE_URI: http://offer-service:8080
+      USER_SERVICE_URI: http://user-service:8080
+      TRACKER_SERVICE_URI: http://tracker-service:8080
+      KEYCLOAK_ISSUER_URI: http://host.docker.internal:8088/realms/job-search
+      KEYCLOAK_CLIENT_SECRET: web-bff-secret
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # resolve the unified Keycloak issuer on Linux/CI too
     ports:
       - "8082:8082"
