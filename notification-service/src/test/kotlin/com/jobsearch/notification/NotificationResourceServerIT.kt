@@ -1,14 +1,16 @@
 package com.jobsearch.notification
 
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.context.TestConfiguration
-import org.springframework.boot.webtestclient.autoconfigure.AutoConfigureWebTestClient
+import org.springframework.context.ApplicationContext
 import org.springframework.context.annotation.Bean
 import org.springframework.http.MediaType
 import org.springframework.security.oauth2.jwt.ReactiveJwtDecoder
 import org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.mockJwt
+import org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.springSecurity
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
 import org.springframework.test.web.reactive.server.WebTestClient
@@ -23,13 +25,28 @@ import reactor.core.publisher.Mono
  * token), the criteria round-trip, self-scoping, an unknown id 404, and a blank keyword 400. The JWT
  * is injected via spring-security-test, so no Keycloak is needed. The Kafka consumer is disabled —
  * this slice has no broker; the consumer path is covered by OfferPublishedConsumerIT.
+ *
+ * The WebTestClient is bound to the application context with `springSecurity()` applied — that
+ * installs the configurer the `mockJwt()` mutator needs to populate the reactive security context
+ * (without it every request reaches the resource server anonymous → 401).
  */
 @Testcontainers(disabledWithoutDocker = true)
 @SpringBootTest(properties = ["notification.kafka.enabled=false"])
-@AutoConfigureWebTestClient
 class NotificationResourceServerIT {
     @Autowired
+    private lateinit var context: ApplicationContext
+
     private lateinit var client: WebTestClient
+
+    @BeforeEach
+    fun setUp() {
+        client =
+            WebTestClient
+                .bindToApplicationContext(context)
+                .apply(springSecurity())
+                .configureClient()
+                .build()
+    }
 
     @Test
     fun `rejects an unauthenticated request`() {

@@ -8,6 +8,9 @@ import com.jobsearch.proto.offer.v1.OfferPublished
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
+import org.apache.kafka.clients.admin.Admin
+import org.apache.kafka.clients.admin.AdminClientConfig
+import org.apache.kafka.clients.admin.NewTopic
 import org.apache.kafka.clients.producer.KafkaProducer
 import org.apache.kafka.clients.producer.ProducerConfig
 import org.apache.kafka.clients.producer.ProducerRecord
@@ -118,6 +121,18 @@ class OfferPublishedConsumerIT {
         fun properties(registry: DynamicPropertyRegistry) {
             registry.registerPostgres(postgres)
             registry.add("spring.kafka.bootstrap-servers") { kafka.bootstrapServers }
+            // Create the topic up front (before the context — and the reactor-kafka consumer — start).
+            // Otherwise the consumer subscribes to a missing topic and only joins the group once the
+            // producer lazily auto-creates it, a recovery that can take far longer than the test's await.
+            createOfferPublishedTopic()
+        }
+
+        private fun createOfferPublishedTopic() {
+            Admin
+                .create(mapOf<String, Any>(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG to kafka.bootstrapServers))
+                .use { admin ->
+                    admin.createTopics(listOf(NewTopic(Topics.OFFER_PUBLISHED, 1, 1.toShort()))).all().get()
+                }
         }
     }
 }

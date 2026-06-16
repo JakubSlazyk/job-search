@@ -27,8 +27,11 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-oauth2-resource-server") // JWT validation
     implementation("org.springframework.boot:spring-boot-starter-data-r2dbc") // reactive Postgres
     implementation("org.springframework.boot:spring-boot-starter-mail") // email delivery (Mailpit/SMTP)
-    implementation("org.springframework.boot:spring-boot-kafka") // KafkaProperties + kafka-clients
     implementation(libs.reactor.kafka) // reactive KafkaReceiver consumer (pinned; not in the Boot BOM)
+    // kafka-clients, pinned to 3.9.x (strictly, overriding the Boot BOM's 4.x) for reactor-kafka
+    // compatibility — see the catalog note. The consumer reads its config via @Value, so spring-kafka
+    // (which would force kafka-clients 4.x) is intentionally not on the classpath.
+    implementation(libs.kafka.clients)
     implementation("org.springframework.boot:spring-boot-flyway")
     implementation("org.flywaydb:flyway-core")
     implementation("org.flywaydb:flyway-database-postgresql")

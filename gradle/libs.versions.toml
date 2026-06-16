@@ -50,7 +50,12 @@ springdoc = "3.0.3"               # springdoc-openapi for Spring Boot 4.x (2.x t
 restAssured = "6.0.0"             # not in the Boot 4.1 BOM; pinned here (matches Spring 7 MockMvc)
 
 # --- notification-service (Phase 2.4): reactive Kafka consumer ---
-reactorKafka = "1.3.23"           # reactor-kafka KafkaReceiver; not managed by the Boot 4.1 BOM
+reactorKafka = "1.3.25"           # reactor-kafka KafkaReceiver; not managed by the Boot 4.1 BOM
+# reactor-kafka 1.3.x is built against kafka-clients 3.9.x and calls a ConsumerRecord constructor that
+# kafka-clients 4.0 removed, so the Boot 4.1 BOM's kafka-clients 4.x throws NoSuchMethodError at the
+# first poll. Pin the client back to 3.9.x (strictly, to override the BOM) until reactor-kafka ships a
+# 4.x-compatible release. 3.9.x clients talk to 4.x brokers fine.
+kafkaClients = "3.9.1"
 
 [libraries]
 # --- Gradle plugin artifacts (build-logic classpath; pins plugin versions monorepo-wide) ---
@@ -114,6 +119,8 @@ rest-assured-spring-mock-mvc = { module = "io.rest-assured:spring-mock-mvc", ver
 
 # --- notification-service reactive Kafka consumer (Phase 2.4) ---
 reactor-kafka = { module = "io.projectreactor.kafka:reactor-kafka", version.ref = "reactorKafka" }
+# strictly so it overrides (downgrades) the Boot BOM's kafka-clients 4.x — see kafkaClients above.
+kafka-clients = { module = "org.apache.kafka:kafka-clients", version = { strictly = "3.9.1" } }
 
 [plugins]
 # Spring Boot / Kotlin plugins are applied through build-logic convention plugins, not here.
