@@ -15,10 +15,11 @@ import org.springframework.test.context.DynamicPropertySource
 import org.springframework.test.web.reactive.server.WebTestClient
 
 /**
- * BFF security rules (ADR 0004): the public browse surface stays open, the protected user surface
- * redirects an unauthenticated browser into the OAuth2 login flow, and a CSRF cookie is issued for
- * the SPA. Keycloak's discovery doc is stubbed with WireMock (no real IdP) — the real authorization
- * redirect against Keycloak is covered by [GatewayKeycloakDiscoveryIT].
+ * BFF security rules (ADR 0004): the public browse surface stays open, an unauthenticated SPA probe
+ * under the `/api/` prefix gets a clean `401` (so the SPA derives anonymous state without a redirect
+ * chase), a top-level browser navigation to a protected page redirects into the OAuth2 login, and a
+ * CSRF cookie is issued for the SPA. Keycloak's discovery doc is stubbed with WireMock (no real IdP)
+ * — the real authorization redirect against Keycloak is covered by [GatewayKeycloakDiscoveryIT].
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class GatewayBffSecurityIT {
@@ -56,10 +57,20 @@ class GatewayBffSecurityIT {
     }
 
     @Test
-    fun `redirects an unauthenticated request for a protected route into the OAuth2 login`() {
+    fun `returns 401 for an unauthenticated SPA probe of a protected api route`() {
         client
             .get()
             .uri("/api/v1/users/me")
+            .exchange()
+            .expectStatus()
+            .isUnauthorized
+    }
+
+    @Test
+    fun `redirects an unauthenticated browser navigation to a protected page into the OAuth2 login`() {
+        client
+            .get()
+            .uri("/profile")
             .exchange()
             .expectStatus()
             .isFound
@@ -82,8 +93,9 @@ class GatewayBffSecurityIT {
         downstream.stubFor(get(urlEqualTo("/api/v1/offers")).willReturn(okJson("[]")))
 
         // The SPA reads the raw XSRF-TOKEN cookie and echoes it as the X-XSRF-TOKEN header. With the
-        // reactive default (masking) handler this raw value would be rejected (403); the plain
-        // request handler resolves it, so CSRF passes and the request proceeds to the auth redirect.
+        // reactive default (masking) handler this raw value would be rejected (403); the plain request
+        // handler resolves it, so CSRF passes and the request proceeds to authentication — which, for
+        // an unauthenticated /api call, is the 401 from the api-aware entry point (not a 403).
         val token =
             client
                 .get()
@@ -103,9 +115,7 @@ class GatewayBffSecurityIT {
             .header("X-XSRF-TOKEN", token)
             .exchange()
             .expectStatus()
-            .isFound
-            .expectHeader()
-            .valueMatches("Location", ".*/oauth2/authorization/keycloak")
+            .isUnauthorized
     }
 
     companion object {

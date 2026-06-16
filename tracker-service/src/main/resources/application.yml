@@ -3,8 +3,10 @@ spring:
     name: tracker-service
   datasource:
     url: ${POSTGRES_URL:jdbc:postgresql://localhost:5432/tracker}
-    username: ${POSTGRES_USER:tracker}
-    password: ${POSTGRES_PASSWORD:tracker}
+    # The shared local Postgres only has the `offers` role (it owns the per-service databases created
+    # by infra/postgres/init); default to it so a bare `./gradlew bootRun` connects without overrides.
+    username: ${POSTGRES_USER:offers}
+    password: ${POSTGRES_PASSWORD:offers}
   flyway:
     enabled: true
   # Consume offer.published to keep the local offer snapshots current (enrichment). Protobuf payloads

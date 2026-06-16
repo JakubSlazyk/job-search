@@ -3,12 +3,17 @@ package com.jobsearch.gateway
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.http.HttpStatus
 import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity
 import org.springframework.security.config.web.server.ServerHttpSecurity
 import org.springframework.security.config.web.server.invoke
 import org.springframework.security.oauth2.client.oidc.web.server.logout.OidcClientInitiatedServerLogoutSuccessHandler
 import org.springframework.security.oauth2.client.registration.ReactiveClientRegistrationRepository
+import org.springframework.security.web.server.DelegatingServerAuthenticationEntryPoint
 import org.springframework.security.web.server.SecurityWebFilterChain
+import org.springframework.security.web.server.ServerAuthenticationEntryPoint
+import org.springframework.security.web.server.authentication.HttpStatusServerEntryPoint
+import org.springframework.security.web.server.authentication.RedirectServerAuthenticationEntryPoint
 import org.springframework.security.web.server.authentication.RedirectServerAuthenticationSuccessHandler
 import org.springframework.security.web.server.authentication.logout.ServerLogoutSuccessHandler
 import org.springframework.security.web.server.csrf.CookieServerCsrfTokenRepository
@@ -63,6 +68,11 @@ class SecurityConfiguration(
                 authorize("/login/**", permitAll)
                 authorize(anyExchange, authenticated)
             }
+            // An unauthenticated SPA probe under /api/** (e.g. GET /api/v1/users/me on load) gets a
+            // clean 401 instead of the default 302 → Keycloak login redirect, so the SPA can derive an
+            // anonymous state from the status code without following a cross-origin redirect chain.
+            // Top-level browser navigations to any other protected path still redirect into the login.
+            exceptionHandling { authenticationEntryPoint = apiAwareAuthenticationEntryPoint() }
             // After a successful login the browser is on the gateway callback origin; send it back to
             // the SPA (the gateway hosts no UI). Without this the default handler targets the
             // gateway's own `/`, which has no resource (404 → 500).
@@ -101,6 +111,20 @@ class SecurityConfiguration(
             "/oauth2/**",
             "/login/**",
         )
+
+    /**
+     * Entry point that splits by request shape: API/XHR calls under the `/api/` prefix get a `401`,
+     * everything else (a top-level browser navigation to a protected page) falls back to the OAuth2
+     * login redirect. This is the standard BFF treatment so the SPA's `fetch` probes don't follow a
+     * redirect chain to Keycloak just to discover the user is anonymous.
+     */
+    private fun apiAwareAuthenticationEntryPoint(): ServerAuthenticationEntryPoint =
+        DelegatingServerAuthenticationEntryPoint(
+            DelegatingServerAuthenticationEntryPoint.DelegateEntry(
+                ServerWebExchangeMatchers.pathMatchers("/api/**"),
+                HttpStatusServerEntryPoint(HttpStatus.UNAUTHORIZED),
+            ),
+        ).apply { setDefaultEntryPoint(RedirectServerAuthenticationEntryPoint("/oauth2/authorization/keycloak")) }
 
     /** RP-initiated logout: end the Keycloak session too, then return to the SPA. */
     private fun oidcLogoutSuccessHandler(

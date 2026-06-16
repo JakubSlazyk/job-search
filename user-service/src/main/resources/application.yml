@@ -3,8 +3,10 @@ spring:
     name: user-service
   datasource:
     url: ${POSTGRES_URL:jdbc:postgresql://localhost:5432/users}
-    username: ${POSTGRES_USER:users}
-    password: ${POSTGRES_PASSWORD:users}
+    # The shared local Postgres only has the `offers` role (it owns the per-service databases created
+    # by infra/postgres/init); default to it so a bare `./gradlew bootRun` connects without overrides.
+    username: ${POSTGRES_USER:offers}
+    password: ${POSTGRES_PASSWORD:offers}
   flyway:
     enabled: true
   # OAuth2 resource server: validate Keycloak-issued JWTs relayed by the gateway BFF. Boot builds the

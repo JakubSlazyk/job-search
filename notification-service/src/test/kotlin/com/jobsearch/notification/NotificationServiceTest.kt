@@ -10,6 +10,7 @@ import io.mockk.clearMocks
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
+import org.springframework.transaction.reactive.TransactionalOperator
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.test.StepVerifier
@@ -21,7 +22,14 @@ class NotificationServiceTest :
         val userContactClient = mockk<UserContactClient>()
         val emailSender = mockk<EmailSender>(relaxed = true)
         val stream = mockk<NotificationStream>(relaxed = true)
-        val service = NotificationService(repository, userContactClient, emailSender, stream)
+        // Pass-through transactional operator: the atomicity it provides is exercised by the
+        // Testcontainers IT; here it must just run the wrapped Flux unchanged.
+        val transactionalOperator =
+            mockk<TransactionalOperator> {
+                every { transactional(any<Flux<DeliveredNotification>>()) } answers { firstArg() }
+            }
+        val service =
+            NotificationService(repository, userContactClient, emailSender, stream, transactionalOperator)
 
         beforeTest { clearMocks(repository, userContactClient, emailSender, stream, answers = false) }
 

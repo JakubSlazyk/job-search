@@ -1,5 +1,6 @@
 package com.jobsearch.notification.kafka
 
+import com.google.protobuf.InvalidProtocolBufferException
 import com.jobsearch.common.domain.Topics
 import com.jobsearch.notification.NotificationService
 import com.jobsearch.proto.offer.v1.OfferPublished
@@ -16,13 +17,20 @@ import reactor.core.publisher.Mono
 import reactor.kafka.receiver.KafkaReceiver
 import reactor.kafka.receiver.ReceiverOptions
 import reactor.kafka.receiver.ReceiverRecord
+import reactor.util.retry.Retry
+import java.time.Duration
 
 /**
  * Reactive inbound adapter: a reactor-kafka [KafkaReceiver] streams `offer.published` and each record
- * is handed to [NotificationService]. `concatMap` processes one record at a time (ordered);
- * idempotency lives in the service (dedup on `event_id`), so the offset is acknowledged after every
- * attempt — a redelivery is a harmless no-op. Managed as a [SmartLifecycle] so it starts with the
- * context and is disposed cleanly on shutdown. Disable in slices that have no broker with
+ * is handed to [NotificationService]. `concatMap` processes one record at a time (ordered); the
+ * service applies the event atomically (dedup + delivery rows in one transaction), so a redelivery is
+ * a harmless no-op.
+ *
+ * A transient failure (e.g. a brief DB blip) is retried in-stream with backoff before the offset is
+ * acknowledged, so a single hiccup no longer drops the event. A non-retryable poison pill (an
+ * unparseable payload) is skipped immediately. Only after the record is either applied or definitively
+ * given up on is its offset acknowledged. Managed as a [SmartLifecycle] so it starts with the context
+ * and is disposed cleanly on shutdown. Disable in slices that have no broker with
  * `notification.kafka.enabled=false`.
  */
 @Component
@@ -46,8 +54,15 @@ class OfferPublishedConsumer(
 
     private fun handle(record: ReceiverRecord<String, ByteArray>): Mono<Void> =
         Mono
-            .defer { notificationService.onOfferPublished(OfferPublished.parseFrom(record.value())) }
-            .doOnError { error -> log.error("Failed to process offer.published, skipping", error) }
+            .fromCallable { OfferPublished.parseFrom(record.value()) }
+            .flatMap(notificationService::onOfferPublished)
+            // Retry transient failures with backoff; an unparseable payload (poison pill) is not
+            // retryable, so it is skipped on the first attempt instead of looping.
+            .retryWhen(
+                Retry
+                    .backoff(MAX_RETRIES, RETRY_BACKOFF)
+                    .filter { it !is InvalidProtocolBufferException },
+            ).doOnError { error -> log.error("Giving up on offer.published, skipping", error) }
             .onErrorComplete()
             .doFinally { record.receiverOffset().acknowledge() }
 
@@ -72,5 +87,10 @@ class OfferPublishedConsumer(
                 .withValueDeserializer(ByteArrayDeserializer())
                 .subscription(listOf(Topics.OFFER_PUBLISHED))
         return KafkaReceiver.create(options)
+    }
+
+    private companion object {
+        const val MAX_RETRIES = 3L
+        val RETRY_BACKOFF: Duration = Duration.ofMillis(200)
     }
 }

@@ -2,16 +2,18 @@ spring:
   application:
     name: notification-service
   # Reactive Postgres for the runtime read/write path (criteria, idempotency guard, delivery history).
+  # The shared local Postgres only has the `offers` role (it owns the per-service databases created by
+  # infra/postgres/init); default to it so a bare `./gradlew bootRun` connects without overrides.
   r2dbc:
     url: ${R2DBC_URL:r2dbc:postgresql://localhost:5432/notification}
-    username: ${POSTGRES_USER:notification}
-    password: ${POSTGRES_PASSWORD:notification}
+    username: ${POSTGRES_USER:offers}
+    password: ${POSTGRES_PASSWORD:offers}
   # Flyway can only migrate over JDBC, so it gets its own JDBC URL (same database as r2dbc above).
   flyway:
     enabled: true
     url: ${JDBC_URL:jdbc:postgresql://localhost:5432/notification}
-    user: ${POSTGRES_USER:notification}
-    password: ${POSTGRES_PASSWORD:notification}
+    user: ${POSTGRES_USER:offers}
+    password: ${POSTGRES_PASSWORD:offers}
   # Consume offer.published reactively (reactor-kafka). Protobuf payloads arrive as raw bytes; earliest
   # so a fresh consumer group replays the backlog. Bootstrap servers are read from here by KafkaConfig.
   kafka:
