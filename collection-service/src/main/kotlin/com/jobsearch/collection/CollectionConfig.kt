@@ -25,6 +25,10 @@ class CollectionConfig {
     fun webClient(): WebClient =
         WebClient
             .builder()
+            // A full job page (e.g. Himalayas with 50 rich HTML descriptions) easily exceeds the 256 KB
+            // default in-memory buffer; without this the body decode throws and the source silently
+            // collects nothing. Raise the cap to a generous bound for a single bounded page.
+            .codecs { it.defaultCodecs().maxInMemorySize(MAX_IN_MEMORY_SIZE) }
             .clientConnector(
                 ReactorClientHttpConnector(HttpClient.create().responseTimeout(RESPONSE_TIMEOUT)),
             ).build()
@@ -54,5 +58,8 @@ class CollectionConfig {
 
     private companion object {
         val RESPONSE_TIMEOUT: Duration = Duration.ofSeconds(10)
+
+        /** In-memory buffer cap for a single fetched page; well above any one bounded source response. */
+        const val MAX_IN_MEMORY_SIZE = 8 * 1024 * 1024
     }
 }

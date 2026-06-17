@@ -10,8 +10,9 @@ spring:
 collection:
   sources:
     # Blank = inactive. Point at a real endpoint (or a stub) to activate the adapter.
-    http-json-url: ${COLLECTION_HTTP_JSON_URL:}
-    html-scrape-url: ${COLLECTION_HTML_SCRAPE_URL:}
+    himalayas-url: ${COLLECTION_HIMALAYAS_URL:}
+    himalayas-limit: ${COLLECTION_HIMALAYAS_LIMIT:50}
+    fake-jobs-url: ${COLLECTION_FAKE_JOBS_URL:}
   polling:
     enabled: ${COLLECTION_POLLING_ENABLED:false}
     interval-ms: ${COLLECTION_POLLING_INTERVAL_MS:60000}

@@ -202,7 +202,11 @@ services:
 
   # --- application services (built from the repo via the shared multi-stage Dockerfile) ---------
 
-  # Reactive multi-source collector (§1.2). Trigger a run with POST /api/v1/collect.
+  # Reactive multi-source collector (§1.2 / Phase 3.0-3.1). Two real sources are wired in: the
+  # Himalayas open API (no auth) and the RealPython fake-jobs static scrape page. Polling is enabled
+  # at a polite 6-hourly cadence so "docker compose up" collects real offers with no host env vars. A
+  # manual run can still be forced with POST /api/v1/collect. Other sources stay inactive until their
+  # URLs are set (blank = no-op).
   collection-service:
     build:
       context: .
@@ -215,6 +219,10 @@ services:
         condition: service_healthy
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      COLLECTION_HIMALAYAS_URL: https://himalayas.app/jobs/api
+      COLLECTION_FAKE_JOBS_URL: https://realpython.github.io/fake-jobs/
+      COLLECTION_POLLING_ENABLED: "true"
+      COLLECTION_POLLING_INTERVAL_MS: "21600000"  # every 6h — be a polite client to the real sources
     ports:
       - "8081:8081"
 

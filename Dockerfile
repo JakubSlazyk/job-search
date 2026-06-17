@@ -9,10 +9,21 @@
 FROM eclipse-temurin:25-jdk AS build
 WORKDIR /workspace
 
-# Build config first (better layer caching), then the monorepo sources. Modules depend on the
-# common-* libraries and build-logic convention plugins, so all are needed on the build context.
-COPY gradlew settings.gradle.kts build.gradle.kts gradle.properties ./
+# Persist Gradle's home (downloaded distribution + dependency cache + build cache) in a BuildKit
+# cache mount, NOT in an image layer — so a code change recompiles but never re-downloads Gradle or
+# the dependencies. GRADLE_USER_HOME pins where that cache lives.
+ENV GRADLE_USER_HOME=/root/.gradle
+
+# Wrapper first: this layer (and the warmed Gradle distribution) is invalidated only when the wrapper
+# itself changes, not on every source edit.
+COPY gradlew ./
 COPY gradle ./gradle
+RUN sed -i 's/\r$//' gradlew && chmod +x gradlew
+RUN --mount=type=cache,target=/root/.gradle ./gradlew --no-daemon --version
+
+# Build config next, then the monorepo sources. Modules depend on the common-* libraries and
+# build-logic convention plugins, so all are needed on the build context.
+COPY settings.gradle.kts build.gradle.kts gradle.properties ./
 COPY build-logic ./build-logic
 COPY common-domain ./common-domain
 COPY common-web ./common-web
@@ -27,9 +38,8 @@ COPY tracker-service ./tracker-service
 COPY notification-service ./notification-service
 
 # bootJar (not build) → only executable jars, no -plain.jar and no tests here (tests run in CI /
-# `./gradlew build`). All service jars build in one Gradle invocation.
-RUN sed -i 's/\r$//' gradlew && chmod +x gradlew && \
-    ./gradlew --no-daemon \
+# `./gradlew build`). All service jars build in one Gradle invocation, reusing the cached Gradle home.
+RUN --mount=type=cache,target=/root/.gradle ./gradlew --no-daemon \
       :collection-service:bootJar :processing-service:bootJar :offer-service:bootJar \
       :api-gateway:bootJar :user-service:bootJar :tracker-service:bootJar \
       :notification-service:bootJar
