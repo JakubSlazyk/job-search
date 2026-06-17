@@ -12,4 +12,5 @@ data class CollectionSourceProperties(
     val htmlScrapeUrl: String = "",
     val himalayasUrl: String = "",
     val himalayasLimit: Int = 50,
+    val fakeJobsUrl: String = "",
 )
