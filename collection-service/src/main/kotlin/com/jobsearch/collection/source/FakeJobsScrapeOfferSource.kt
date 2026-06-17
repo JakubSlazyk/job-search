@@ -16,8 +16,8 @@ import reactor.core.publisher.Flux
 
 /**
  * Scrape source for the RealPython "fake-jobs" board (`https://realpython.github.io/fake-jobs/`), a
- * static, scrape-friendly HTML page. Its card markup differs from the generic [HtmlScrapeOfferSource],
- * so it gets its own anti-corruption adapter (ADR 0005): it fetches the page via [WebClient]
+ * static, scrape-friendly HTML page with its own card markup, so it gets a dedicated
+ * anti-corruption adapter (ADR 0005): it fetches the page via [WebClient]
  * (non-blocking) and extracts each job card with [Jsoup], retaining the card's original HTML as
  * `raw_content`. Descriptions live on per-job detail pages and are not fetched here (card-only —
  * detail enrichment deferred). The outbound call is guarded by Resilience4j retry + circuit-breaker.

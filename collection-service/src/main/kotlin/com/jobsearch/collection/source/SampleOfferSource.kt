@@ -6,9 +6,9 @@ import org.springframework.stereotype.Component
 import reactor.core.publisher.Flux
 
 /**
- * A no-network demo source that always emits one hardcoded offer. Keeps the walking-skeleton
- * pipeline exercisable without any external endpoint configured; the real adapters
- * ([HttpJsonOfferSource], [HtmlScrapeOfferSource]) activate when their URLs are set.
+ * A no-network demo source that always emits one hardcoded offer. Keeps the pipeline exercisable
+ * without any external endpoint configured; the real adapters ([HimalayasOfferSource],
+ * [FakeJobsScrapeOfferSource]) activate when their URLs are set.
  */
 @Component
 class SampleOfferSource : OfferSource {

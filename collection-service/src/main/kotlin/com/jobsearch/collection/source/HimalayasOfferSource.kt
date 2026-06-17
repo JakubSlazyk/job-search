@@ -16,9 +16,9 @@ import tools.jackson.databind.JsonNode
 import tools.jackson.databind.ObjectMapper
 
 /**
- * Open-API source for the Himalayas job board (`https://himalayas.app/jobs/api`). Unlike the generic
- * [HttpJsonOfferSource], the response is an *object* (`{ "jobs": [...] }`) with Himalayas-specific
- * field names, so it gets its own anti-corruption adapter (ADR 0005): it fetches a bounded page and
+ * Open-API source for the Himalayas job board (`https://himalayas.app/jobs/api`). The response is an
+ * *object* (`{ "jobs": [...] }`) with Himalayas-specific field names, so it gets its own
+ * anti-corruption adapter (ADR 0005): it fetches a bounded page and
  * maps each `jobs[]` element to a uniform [RawOffer], retaining the original JSON as `raw_content`.
  * The outbound call is guarded by Resilience4j retry + circuit-breaker. No-ops when unconfigured.
  */

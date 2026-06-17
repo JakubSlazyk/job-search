@@ -8,8 +8,6 @@ import org.springframework.boot.context.properties.ConfigurationProperties
  */
 @ConfigurationProperties(prefix = "collection.sources")
 data class CollectionSourceProperties(
-    val httpJsonUrl: String = "",
-    val htmlScrapeUrl: String = "",
     val himalayasUrl: String = "",
     val himalayasLimit: Int = 50,
     val fakeJobsUrl: String = "",
