@@ -9,6 +9,7 @@ import com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo
 import com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration.options
 import com.jobsearch.common.domain.Topics
+import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry
 import org.apache.kafka.clients.consumer.Consumer
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.clients.consumer.ConsumerRecord
@@ -20,6 +21,7 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory
@@ -50,9 +52,16 @@ class CollectionFlowIT {
     @Value("\${local.server.port}")
     private var port: Int = 0
 
+    @Autowired
+    private lateinit var circuitBreakerRegistry: CircuitBreakerRegistry
+
     @BeforeEach
-    fun resetStubs() {
+    fun reset() {
         wireMock.resetAll()
+        // The breaker registry is a context-wide singleton shared across test methods; without this a
+        // failing-source test would leave recorded failures that could open a breaker and bleed into
+        // the next test. Reset each breaker to CLOSED so every method starts from a clean slate.
+        circuitBreakerRegistry.allCircuitBreakers.forEach { it.reset() }
     }
 
     @Test
