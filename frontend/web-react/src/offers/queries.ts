@@ -11,6 +11,19 @@ export interface Offer {
   location: string;
   description: string;
   seniority: string;
+
+  // Forward-compat enrichment fields the GraphQL schema does not expose yet. The UI renders each
+  // only when present, so the richer detail layout (salary, stack, responsibilities, …) lights up
+  // automatically once the backend starts projecting them. Not selected in the queries below until
+  // the schema adds them — requesting an undefined field would error.
+  employmentType?: string;
+  remote?: boolean;
+  salaryMin?: number;
+  salaryMax?: number;
+  skills?: string[];
+  responsibilities?: string[];
+  requirements?: string[];
+  companyBlurb?: string;
 }
 
 export interface OffersVars {
